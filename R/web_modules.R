@@ -81,56 +81,75 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
 web_conditions_ui <- function(id) {
   ns <- shiny::NS(id)
   bslib::layout_columns(col_widths=c(3,9),
-    bslib::card(shiny::selectInput(ns("global_blank"),"Triplet blanc commun",choices=c("Aucun"="")),shiny::helpText("Soustrait à toutes les conditions, séparément pour chaque signal. Le triplet blanc est exclu des ajustements.")),
+    bslib::card(shiny::selectInput(ns("global_blank"),"Groupe blanc commun",choices=c("Aucun"="")),shiny::helpText("Soustrait à toutes les conditions, séparément pour chaque signal. Le triplet blanc est exclu des ajustements.")),
     shiny::tagList(shiny::selectInput(ns("selected"),"Condition",NULL),shiny::textInput(ns("name"),"Nom",""),
     shiny::selectizeInput(ns("reps"),"Réplicats",NULL,multiple=TRUE),
+    shiny::helpText("Renommez le groupe et ajustez ses puits, puis enregistrez. Un puits ajouté est déplacé depuis son ancien groupe."),
     shiny::actionButton(ns("save"),"Enregistrer / renommer",class="btn-primary"),shiny::actionButton(ns("new"),"Nouvelle condition"),
     shiny::actionButton(ns("delete"),"Supprimer"),shiny::fileInput(ns("yaml"),"Importer une configuration YAML",accept=c(".yml",".yaml")),
     shiny::downloadButton(ns("download"),"Exporter YAML"),shiny::tableOutput(ns("summary"))))
 }
 web_conditions_server <- function(id,data) shiny::moduleServer(id,function(input,output,session){
   conditions <- shiny::reactiveVal(list())
-  triplets <- shiny::reactiveVal(list())
+  blank_name <- shiny::reactiveVal("")
+  selection <- shiny::reactiveVal("")
   effective <- shiny::reactive({
-    blank <- triplets()[[input$global_blank %||% ""]]
+    blank <- conditions()[[blank_name()]]
     web_apply_global_blank(conditions(),blank$replicates %||% character())
   })
-  shiny::observeEvent(data(),{ wells<-unique(data()$well); conditions(web_triplet_conditions(wells));triplets(web_triplet_conditions(wells))
-    shiny::updateSelectInput(session,"global_blank",choices=c("Aucun"="",stats::setNames(names(triplets()),names(triplets()))),selected="")
-    shiny::updateTextInput(session,"name",value="")
-    shiny::updateSelectInput(session,"selected",selected="")
-    shiny::updateSelectizeInput(session,"reps",choices=wells)
+  shiny::observeEvent(data(),{
+    groups<-web_triplet_conditions(unique(data()$well))
+    blank_name("");selection(if(length(groups))names(groups)[1] else "");conditions(groups)
+    shiny::updateSelectizeInput(session,"reps",choices=unique(data()$well))
   },ignoreNULL=FALSE)
-  shiny::observeEvent(effective(),shiny::updateSelectInput(session,"selected",choices=c("Nouvelle"="",stats::setNames(names(effective()),names(effective())))))
-  shiny::observeEvent(input$selected,{
-    c <- conditions()[[input$selected]]
-    if(!is.null(c)){shiny::updateTextInput(session,"name",value=input$selected);shiny::updateSelectizeInput(session,"reps",selected=unlist(c$replicates))}
+  shiny::observeEvent(list(conditions(),blank_name()),{
+    names<-names(conditions())
+    selected<-shiny::isolate(selection())
+    if(nzchar(selected) && !selected %in% names) selected<-if(length(names))names[1] else ""
+    shiny::updateSelectInput(session,"selected",choices=c(stats::setNames(names,names),"Nouvelle"=""),selected=selected)
+    shiny::updateSelectInput(session,"global_blank",choices=c("Aucun"="",stats::setNames(names,names)),selected=blank_name())
+    group<-conditions()[[selected]]
+    shiny::updateTextInput(session,"name",value=selected)
+    shiny::updateSelectizeInput(session,"reps",selected=group$replicates %||% character())
   })
-  shiny::observeEvent(input$new, {shiny::updateSelectInput(session,"selected",selected="");shiny::updateTextInput(session,"name",value="");shiny::updateSelectizeInput(session,"reps",selected=character())})
+  shiny::observeEvent(input$global_blank,{
+    if(input$global_blank=="" || input$global_blank %in% names(conditions())) blank_name(input$global_blank)
+  })
+  shiny::observeEvent(input$selected,{
+    selection(input$selected)
+    group<-conditions()[[input$selected]]
+    shiny::updateTextInput(session,"name",value=input$selected)
+    shiny::updateSelectizeInput(session,"reps",selected=group$replicates %||% character())
+  })
+  shiny::observeEvent(input$new,{
+    selection("");shiny::updateSelectInput(session,"selected",selected="")
+    shiny::updateTextInput(session,"name",value="");shiny::updateSelectizeInput(session,"reps",selected=character())
+  })
   shiny::observeEvent(input$save,{
     tryCatch({
-      name <- trimws(input$name); c <- conditions()
-      if(!nzchar(name)) stop("Nommez la condition.")
-      if(name %in% names(c) && name != input$selected) stop("Ce nom existe déjà.")
-      candidate <- stats::setNames(list(list(replicates=input$reps,blanks=character())),name)
-      web_validate_conditions(candidate,unique(data()$well))
-      if(nzchar(input$selected)) c[[input$selected]] <- NULL
-      c[[name]] <- candidate[[1]];conditions(c)
-    },error=function(e) shiny::showNotification(conditionMessage(e),type="error"))
+      edit<-web_edit_group(conditions(),input$selected,trimws(input$name),input$reps,blank_name(),unique(data()$well))
+      selection(trimws(input$name));blank_name(edit$blank);conditions(edit$groups)
+    },error=function(e)shiny::showNotification(conditionMessage(e),type="error"))
   })
-  shiny::observeEvent(input$delete,{c<-conditions();c[[input$selected]]<-NULL;conditions(c)})
+  shiny::observeEvent(input$delete,{
+    groups<-conditions();groups[[input$selected]]<-NULL
+    if(blank_name()==input$selected)blank_name("")
+    selection(if(length(groups))names(groups)[1] else "");conditions(groups)
+  })
   shiny::observeEvent(input$yaml,{
-    tryCatch({c<-yaml::read_yaml(input$yaml$datapath,eval.expr=FALSE);web_validate_conditions(c,unique(data()$well))
-      blanks<-lapply(c,function(x)sort(unlist(x$blanks)))
-      if(length(unique(blanks))>1) stop("Le fichier doit définir un seul blanc commun.")
-      shared<-blanks[[1]]
-      selected<-names(triplets())[vapply(triplets(),function(x)setequal(x$replicates,shared),logical(1))]
-      if(length(shared) && !length(selected)) stop("Le blanc doit correspondre à un triplet de la plaque.")
-      for(i in seq_along(c)) c[[i]]$blanks<-character()
-      conditions(c);shiny::updateSelectInput(session,"global_blank",selected=if(length(selected))selected[1] else "")},error=function(e) shiny::showNotification(conditionMessage(e),type="error"))
+    tryCatch({
+      config<-web_read_group_config(yaml::read_yaml(input$yaml$datapath,eval.expr=FALSE),unique(data()$well))
+      selection(names(config$groups)[1]);blank_name(config$blank);conditions(config$groups)
+    },error=function(e)shiny::showNotification(conditionMessage(e),type="error"))
   })
-  output$download <- shiny::downloadHandler(filename=function()"conditions.yaml",content=function(file)yaml::write_yaml(effective(),file))
-  output$summary <- shiny::renderTable({c<-effective();if(!length(c))return(NULL);data.frame(Condition=names(c),Réplicats=vapply(c,function(x)paste(unlist(x$replicates),collapse=", "),""))})
+  output$download<-shiny::downloadHandler(filename=function()"conditions.yaml",content=function(file){
+    yaml::write_yaml(list(version=2,blank=blank_name(),groups=conditions()),file)
+  })
+  output$summary<-shiny::renderTable({
+    groups<-conditions();if(!length(groups))return(NULL)
+    data.frame(Condition=names(groups),Replicates=vapply(groups,function(g)paste(g$replicates,collapse=", "),""),
+      Blank=ifelse(names(groups)==blank_name(),"✓",""))
+  })
   effective
 })
 

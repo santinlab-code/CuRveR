@@ -210,3 +210,41 @@ web_blank_correct <- function(data, blank_wells, windows=NULL) {
   }
   data
 }
+
+web_edit_group <- function(groups, selected, name, wells, blank, available) {
+  if(!nzchar(name)) stop("Enter a condition name.")
+  if(name %in% names(groups) && name!=selected) stop("This name already exists.")
+  candidate<-list(replicates=unique(wells),blanks=character())
+  web_validate_conditions(stats::setNames(list(candidate),name),available)
+  if(selected %in% names(groups)) {
+    names(groups)[match(selected,names(groups))]<-name
+    if(blank==selected) blank<-name
+  }
+  groups[[name]]<-candidate
+  # Moving a well to a group removes it from its previous group, avoiding double counting.
+  for(other in setdiff(names(groups),name))groups[[other]]$replicates<-setdiff(groups[[other]]$replicates,wells)
+  groups<-groups[vapply(groups,function(g)length(g$replicates)>0,logical(1))]
+  if(!blank %in% names(groups))blank<-""
+  list(groups=groups,blank=blank)
+}
+
+web_read_group_config <- function(config, available) {
+  if(identical(as.integer(config$version),2L)) {
+    groups<-config$groups;blank<-config$blank %||% ""
+    web_validate_conditions(groups,available)
+    if(nzchar(blank) && !blank %in% names(groups))stop("Unknown blank group.")
+  } else {
+    groups<-config;web_validate_conditions(groups,available)
+    blanks<-lapply(groups,function(g)sort(unlist(g$blanks)))
+    if(length(unique(blanks))>1)stop("The file must define one shared blank.")
+    shared<-blanks[[1]];blank<-""
+    if(length(shared)){
+      blank<-"Blank";while(blank %in% names(groups))blank<-paste0(blank,"_")
+      groups[[blank]]<-list(replicates=shared,blanks=character())
+    }
+  }
+  for(i in seq_along(groups))groups[[i]]$blanks<-character()
+  assigned<-unlist(lapply(groups,`[[`,"replicates"),use.names=FALSE)
+  if(anyDuplicated(assigned))stop("A well must belong to only one group.")
+  list(groups=groups,blank=blank)
+}

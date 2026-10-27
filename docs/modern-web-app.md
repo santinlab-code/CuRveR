@@ -68,8 +68,10 @@ Après import, les puits sont pré-affectés par triplets de colonnes au sein de
 
 ## Blanc commun
 
-Dans Conditions, sélectionner une seule fois le triplet blanc dans le panneau latéral. Ce groupe est exclu des conditions à ajuster ; ses puits sont affectés comme blancs à toutes les conditions restantes. Le choix « Aucun » conserve les mesures sans correction. Les groupes incomplets restent sélectionnables si la plaque n’inclut pas leurs trois puits.
+Dans Conditions, sélectionner une seule fois le triplet blanc dans le panneau latéral. Ce groupe est exclu des conditions à ajuster ; ses puits sont affectés comme blancs à toutes les conditions restantes. Le choix « Aucun » conserve les mesures sans correction. Le blanc reste dans la liste des groupes éditables, mais ne devient jamais une condition à ajuster. Son nom et ses puits suivent les modifications enregistrées. Les groupes incomplets restent sélectionnables si la plaque n’inclut pas leurs trois puits.
 
 La correction conserve le calcul historique : pour chaque signal (OD et fluorescence séparément), soustraction de la moyenne des mesures des puits blancs dans leurs fenêtres sélectionnées. Il s’agit d’une moyenne globale dans ces fenêtres, pas d’une soustraction point par point dans le temps. Les fenêtres affichent les données corrigées ; l’analyse repart des mesures brutes et applique la correction une seule fois. Les données ajustées et exportées sont corrigées. Import et Aperçu restent des vues des mesures brutes. Modifier le choix du blanc invalide les anciens résultats et nécessite de relancer l’analyse.
 
-L’export YAML des conditions conserve la structure historique avec les mêmes puits blancs dans chaque condition. À l’import, un seul blanc commun correspondant à un groupe de la plaque est accepté ; des blancs différents par condition donnent un message d’erreur explicite.
+L’export YAML des conditions (version 2) contient les groupes éditables et le nom du groupe blanc. Les anciens fichiers avec un blanc commun sont importés en reconstruisant un groupe Blank modifiable. Des blancs différents par condition donnent un message d’erreur explicite.
+
+Les groupes préremplis sont des propositions : ils peuvent être renommés et contenir deux, trois, quatre puits ou davantage. Retirer un puits l’exclut du groupe ; ajouter un puits le déplace depuis son groupe précédent pour éviter les doublons. Enregistrer applique les changements. Supprimer le groupe blanc désactive la correction jusqu’à un nouveau choix.

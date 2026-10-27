@@ -141,3 +141,20 @@ test_that("one global blank is applied to all conditions and excluded from fitti
   }
   expect_false(grepl('id="c-blanks"',as.character(CuRveR:::web_conditions_ui('c'))))
 })
+
+test_that("renaming and editing any group preserves the common blank identity", {
+  wells<-paste0("A",1:9);groups<-CuRveR:::web_triplet_conditions(wells)
+  edit<-CuRveR:::web_edit_group(groups,"A7-A9","Medium",paste0("A",7:9),"A7-A9",wells)
+  expect_equal(edit$blank,"Medium")
+  expect_true("Medium" %in% names(edit$groups))
+  edit<-CuRveR:::web_edit_group(edit$groups,"Medium","Medium",c("A7","A8"),edit$blank,wells)
+  effective<-CuRveR:::web_apply_global_blank(edit$groups,edit$groups[[edit$blank]]$replicates)
+  expect_equal(effective[[1]]$blanks,c("A7","A8"))
+  expect_false("Medium" %in% names(effective))
+  edit<-CuRveR:::web_edit_group(edit$groups,"A1-A3","Treatment",paste0("A",1:4),edit$blank,wells)
+  expect_equal(edit$groups$Treatment$replicates,paste0("A",1:4))
+  expect_equal(edit$groups[["A4-A6"]]$replicates,c("A5","A6"))
+  config<-CuRveR:::web_read_group_config(list(version=2,blank=edit$blank,groups=edit$groups),wells)
+  expect_equal(config,edit)
+  expect_error(CuRveR:::web_edit_group(edit$groups,"Treatment","Medium","A1",edit$blank,wells),"exists")
+})
