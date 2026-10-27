@@ -145,7 +145,7 @@ web_windows_server <- function(id,data) shiny::moduleServer(id,function(input,ou
   })
   output$plot<-shiny::renderPlot({shiny::req(data(),windows(),input$signal,input$well)
     d<-data();d<-d[d$signal==input$signal & d$well==input$well,]
-    ggplot2::ggplot(d,ggplot2::aes(Time,value))+ggplot2::geom_line(color="#137c8b")+ggplot2::geom_point()+ggplot2::geom_vline(xintercept=c(input$left,input$right),linetype=2)+ggplot2::theme_minimal()
+    ggplot2::ggplot(d,ggplot2::aes(Time,value))+ggplot2::geom_line(color="#00284B")+ggplot2::geom_point()+ggplot2::geom_vline(xintercept=c(input$left,input$right),linetype=2)+ggplot2::theme_minimal()
   })
   output$windows<-shiny::renderTable(windows())
   windows

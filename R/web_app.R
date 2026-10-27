@@ -1,13 +1,9 @@
 modern_ui <- function() bslib::page_navbar(
-  title=shiny::tagList(shiny::div(style="display:inline-block;margin-right:14px",shiny::tags$select(id="language",class="shiny-input-select form-select",`aria-label`="Language / Langue",shiny::tags$option(value="en",selected="selected","EN"),shiny::tags$option(value="fr","FR"))),"CuRveR"),id="page",theme=bslib::bs_theme(version=5, bootswatch="flatly",primary="#137c8b",base_font="system-ui"),
-  header=shiny::tagList(shiny::tags$script(src="curver/language.js"),shiny::tags$style(shiny::HTML("body{background:#f3f6f8}.bslib-card{border:0;box-shadow:0 2px 12px #1232}.navbar{border-bottom:3px solid #137c8b}.shiny-output-error-validation{color:#9c3c19}.form-control{border-radius:6px}table{font-variant-numeric:tabular-nums}"))),
+  title=shiny::tagList(shiny::div(style="display:inline-block;margin-right:14px",shiny::tags$select(id="language",class="shiny-input-select form-select",`aria-label`="Language / Langue",shiny::tags$option(value="en",selected="selected","EN"),shiny::tags$option(value="fr","FR"))),"CuRveR"),id="page",theme=bslib::bs_theme(version=5, bootswatch="flatly",primary="#00284B",success="#00284B",base_font="system-ui"),
+  header=shiny::tagList(shiny::tags$script(src="curver/language.js"),shiny::tags$style(shiny::HTML("body{background:#f3f6f8}.bslib-card{border:0;box-shadow:0 2px 12px #1232}.navbar{border-bottom:3px solid #00284B}.shiny-output-error-validation{color:#9c3c19}.form-control{border-radius:6px}table{font-variant-numeric:tabular-nums}"))),
   sidebar=bslib::sidebar(title="Votre analyse",width=290,
     shiny::p("Import → Conditions → Fenêtres → Résultats"),
     shiny::textOutput("counts"),shiny::hr(),
-    shiny::selectInput("loss","Fonction de coût",c("LAD","OLS","Huber","Tukey","Andrew","Jaeckel")),
-    shiny::numericInput("seed","Graine reproductible",42,min=0,max=.Machine$integer.max,step=1),
-    shiny::p("Modèle : Richard · Optimisation : évolution différentielle"),
-    shiny::actionButton("run","Lancer l’analyse",class="btn-primary"),shiny::actionButton("cancel","Annuler"),
     shiny::textOutput("status"),shiny::p("Excel times are converted to minutes. Blanks are subtracted using the historical calculation.")),
   bslib::nav_panel("Import",bslib::card(bslib::card_header("Fichiers et préparation"),web_import_ui("import"))),
   bslib::nav_panel("Aperçu",bslib::card(fill=FALSE,
@@ -16,6 +12,7 @@ modern_ui <- function() bslib::page_navbar(
   bslib::nav_panel("Conditions",bslib::card(bslib::card_header("Réplicats et blancs"),web_conditions_ui("conditions"))),
   bslib::nav_panel("Fenêtres",bslib::card(bslib::card_header("Sélectionnez une zone du graphique ou saisissez ses bornes"),web_windows_ui("windows"))),
   bslib::nav_panel("Résultats",bslib::card(
+    shiny::actionButton("run","Lancer l’analyse",class="btn-primary"),shiny::actionButton("cancel","Annuler"),
     shiny::selectInput("signal","Signal",NULL),shiny::checkboxGroupInput("conditions","Conditions",NULL,inline=TRUE),
     bslib::navset_card_tab(
       bslib::nav_panel("Courbes",shiny::selectInput("plot_type","Vue",c("Courbes"="curves","Paramètres"="metrics","Annotations"="annotations")),
@@ -45,7 +42,7 @@ modern_server <- function(input,output,session) {
   result <- shiny::reactiveVal(NULL); job <- shiny::reactiveVal(NULL)
   status <- shiny::reactiveVal("Prêt. Ajoutez un signal pour commencer.")
   revision <- shiny::reactiveVal(0L); completed <- shiny::reactiveVal(-1L); launched <- 0L
-  shiny::observeEvent(list(data(),conditions(),windows(),input$loss,input$seed),{
+  shiny::observeEvent(list(data(),conditions(),windows()),{
     revision(shiny::isolate(revision())+1L)
   },ignoreNULL=FALSE)
   output$counts <- shiny::renderText({d<-data();if(is.null(d))"Aucune donnée" else paste(length(unique(d$signal)),if(identical(input$language,"fr")) "signaux ·" else "signals ·",length(unique(d$well)),if(identical(input$language,"fr")) "puits ·" else "wells ·",length(conditions()),"conditions")})
@@ -54,11 +51,10 @@ modern_server <- function(input,output,session) {
     if(!is.null(job())){shiny::showNotification("Une analyse est déjà en cours.");return()}
     tryCatch({
       shiny::req(data(),windows());web_validate_conditions(conditions(),unique(data()$well))
-      if(is.null(input$seed) || !is.finite(input$seed) || input$seed<0 || input$seed>.Machine$integer.max)stop("Graine invalide.")
       launched <<- revision()
       job(callr::r_bg(function(data,conditions,windows,loss,seed){
         CuRveR:::web_analyze(data,conditions,windows,loss,seed)
-      },args=list(data=data(),conditions=conditions(),windows=windows(),loss=input$loss,seed=as.integer(input$seed)),libpath=.libPaths(),supervise=TRUE))
+      },args=list(data=data(),conditions=conditions(),windows=windows(),loss="LAD",seed=42L),libpath=.libPaths(),supervise=TRUE))
       status("Analyse en cours dans un processus séparé…")
     },error=function(e){status("Analyse non lancée.");shiny::showNotification(conditionMessage(e),type="error",duration=NULL)})
   })

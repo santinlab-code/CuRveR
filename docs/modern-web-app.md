@@ -57,3 +57,7 @@ Les versions des dépendances ne sont pas encore verrouillées pour toutes les p
 ## Axes de l’aperçu
 
 L’OD (noir, gauche) et le signal (rouge, droite) utilisent une transformation affine par puits : minimum OD aligné sur minimum signal et maximum OD aligné sur maximum signal. Chaque graphique affiche ses propres axes gradués ; les plages diffèrent entre puits. Les axes affichent les unités réelles ; les données et les calculs ne sont pas transformés. Les croisements dépendent de ces échelles d’affichage et ne constituent pas une égalité de mesures entre OD et fluorescence. Les séries constantes utilisent une plage élargie pour garder une transformation inversible.
+
+## Interface simplifiée
+
+La couleur principale est RGB(0, 40, 75), soit #00284B. La barre latérale ne contient plus de réglages de calcul ni de bouton de lancement. L’analyse se lance depuis Résultats, avec LAD et une graine reproductible de 42 ; ces valeurs sont conservées dans l’export de configuration. Les autres fonctions de coût restent disponibles dans le moteur R et l’interface historique.
