@@ -10,6 +10,7 @@ Depends: R (>= 4.1)
 License: GLP3
 Encoding: UTF-8
 Imports: 
+    grid,
     bslib (>= 0.9.0),
     callr,
     R6,

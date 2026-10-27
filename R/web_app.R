@@ -11,7 +11,7 @@ modern_ui <- function() bslib::page_navbar(
     shiny::textOutput("status"),shiny::p("Excel times are converted to minutes. Blanks are subtracted using the historical calculation.")),
   bslib::nav_panel("Import",bslib::card(bslib::card_header("Fichiers et préparation"),web_import_ui("import"))),
   bslib::nav_panel("Aperçu",bslib::card(fill=FALSE,
-    bslib::card_body(fillable=FALSE,shiny::div(style="height:900px;min-height:900px;flex-shrink:0;",shiny::plotOutput("overview",height="900px",fill=FALSE))),
+    bslib::card_body(fillable=FALSE,shiny::uiOutput("overview_container")),
     bslib::card_footer(shiny::downloadButton("overview_export","Exporter l’aperçu PDF")))),
   bslib::nav_panel("Conditions",bslib::card(bslib::card_header("Réplicats et blancs"),web_conditions_ui("conditions"))),
   bslib::nav_panel("Fenêtres",bslib::card(bslib::card_header("Sélectionnez une zone du graphique ou saisissez ses bornes"),web_windows_ui("windows"))),
@@ -74,13 +74,18 @@ modern_server <- function(input,output,session) {
   })
   shiny::observeEvent(input$cancel,{if(!is.null(job())){job()$kill();job(NULL);status("Analyse annulée.")}})
   session$onSessionEnded(function(){p<-shiny::isolate(job());if(!is.null(p))p$kill()})
-  overview <- shiny::reactive({shiny::req(data());web_overview_plot(data(),input$language %||% "en")})
+  output$overview_container <- shiny::renderUI({
+    height <- if(is.null(data())) 300L else web_overview_height(data())
+    shiny::div(style=paste0("height:",height,"px;min-height:",height,"px;flex-shrink:0;"),
+      shiny::plotOutput("overview",height=paste0(height,"px"),fill=FALSE))
+  })
+  overview <- shiny::reactive({shiny::req(data());web_overview_grid(data(),input$language %||% "en")})
   output$overview <- shiny::renderPlot({
     shiny::validate(shiny::need(!is.null(data()), if(identical(input$language,"fr")) "Importez les données avec le bouton Importer OD + signal." else "Import data using the Import OD + signal button first."))
-    tryCatch(print(overview()), error=function(e) {
+    tryCatch({grid::grid.newpage();grid::grid.draw(overview())}, error=function(e) {
       shiny::validate(shiny::need(FALSE,paste(if(identical(input$language,"fr")) "Impossible de tracer l’aperçu :" else "Cannot render overview:",conditionMessage(e))))
     })
-  },res=96,height=900,width=function(){
+  },res=96,height=function(){if(is.null(data())) 300L else web_overview_height(data())},width=function(){
     width <- session$clientData$output_overview_width
     if(is.null(width) || !is.finite(width) || width<100) 1200 else width
   },execOnResize=TRUE)
@@ -102,5 +107,5 @@ modern_server <- function(input,output,session) {
   output$quality<-shiny::downloadHandler(function()"curver_quality.csv",function(file){ready();readr::write_csv(result()$performance,file)})
   output$settings<-shiny::downloadHandler(function()"curver_settings.yaml",function(file){ready();yaml::write_yaml(result()$settings,file)})
   output$figure<-shiny::downloadHandler(function()paste0("curver.",input$format),function(file){ready();ggplot2::ggsave(file,plot(),device=input$format,width=input$width,height=input$height,units="cm",dpi=input$dpi,limitsize=TRUE)})
-  output$overview_export<-shiny::downloadHandler(function()"overview.pdf",function(file)ggplot2::ggsave(file,overview(),device="pdf",width=18,height=12,units="cm"))
+  output$overview_export<-shiny::downloadHandler(function()"overview.pdf",function(file)ggplot2::ggsave(file,overview(),device="pdf",width=27,height=web_overview_height(data())/96*2.54,units="cm"))
 }

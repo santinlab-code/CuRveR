@@ -139,3 +139,30 @@ web_overview_plot <- function(data, language="en") {
       axis.title.y.right=ggplot2::element_text(color="#c62828"),
       axis.text.y.right=ggplot2::element_text(color="#c62828"))
 }
+
+# Each well needs its own affine transform: facet_wrap shares secondary axes
+# and cannot express independent left/right ranges for individual panels.
+web_overview_panels <- function(data, language="en") {
+  wells <- gtools::mixedsort(unique(data$well))
+  stats::setNames(lapply(wells,function(well){
+    d <- data[data$well==well,]
+    attr(d,"od_signal") <- attr(data,"od_signal")
+    attr(d,"fluorescence_signal") <- attr(data,"fluorescence_signal")
+    web_overview_plot(d,language)+ggplot2::labs(caption=NULL)+
+      ggplot2::theme(text=ggplot2::element_text(size=10))
+  }),wells)
+}
+
+web_overview_grid <- function(data, language="en", columns=3L) {
+  panels <- web_overview_panels(data,language)
+  rows <- ceiling(length(panels)/columns)
+  grobs <- lapply(seq_along(panels),function(i){
+    g <- ggplot2::ggplotGrob(panels[[i]])
+    grid::editGrob(g,name=paste0("well-",i),vp=grid::viewport(
+      x=((i-1L)%%columns+.5)/columns,
+      y=1-((i-1L)%/%columns+.5)/rows,
+      width=1/columns,height=1/rows))
+  })
+  do.call(grid::grobTree,grobs)
+}
+web_overview_height <- function(data) max(300L,ceiling(length(unique(data$well))/3)*280L)

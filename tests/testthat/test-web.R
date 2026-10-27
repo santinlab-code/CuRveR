@@ -90,3 +90,19 @@ test_that("overview aligns nonzero minima and maxima with an invertible axis", {
   expect_equal(p$scales$get_scales("y")$secondary.axis$trans(built$data[[2]]$y),c(1000,3000,5000))
   expect_equal(d$value,c(.2,.4,.6,1000,3000,5000))
 })
+
+test_that("each well independently aligns both axis endpoints", {
+  d<-data.frame(Time=rep(0:2,4),well=rep(c("A1","A2"),each=6),signal=rep(rep(c("OD","signal"),each=3),2),value=c(.2,.4,.6,1000,3000,5000,.3,.4,.5,600,900,1200))
+  attr(d,"od_signal")<-"OD";attr(d,"fluorescence_signal")<-"signal"
+  original<-d
+  panels<-CuRveR:::web_overview_panels(d)
+  expect_equal(names(panels),c("A1","A2"))
+  for(well in names(panels)){
+    built<-ggplot2::ggplot_build(panels[[well]])
+    expect_equal(range(built$data[[1]]$y),range(built$data[[2]]$y))
+    expected<-d$value[d$well==well & d$signal=="signal"]
+    expect_equal(panels[[well]]$scales$get_scales("y")$secondary.axis$trans(built$data[[2]]$y),expected)
+  }
+  expect_s3_class(CuRveR:::web_overview_grid(d),"gTree")
+  expect_equal(d,original)
+})
