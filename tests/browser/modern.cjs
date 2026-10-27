@@ -1,0 +1,23 @@
+const {chromium}=require('playwright');
+const fs=require('fs'),os=require('os'),path=require('path');
+const directory=fs.mkdtempSync(path.join(os.tmpdir(),'curver-'));
+const source=path.join(directory,'input.csv');
+let rows=['Time,A1,A2,B1'];for(let i=0;i<49;i++){let t=i/2,y=.1+.9/(1+Math.exp(-.5*(t-12)));rows.push([t,y,y+.01,.05].join(','))}fs.writeFileSync(source,rows.join('\n'));
+
+(async()=>{const b=await chromium.launch({...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}),headless:true,args:['--no-sandbox']});const page=await b.newPage({viewport:{width:1440,height:1000}});let errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto('http://127.0.0.1:3839');await page.waitForFunction(()=>window.Shiny?.shinyapp?.$socket?.readyState===1);
+await page.waitForTimeout(1500);await page.locator('#import-files').setInputFiles(source);
+await page.waitForFunction(()=>document.querySelector('#import-time')?.options.length>0);
+await page.waitForTimeout(1500);await page.locator('#import-add').click();await page.waitForFunction(()=>document.querySelector('#import-status').innerText.includes('1 signal'));
+console.log('import:',await page.locator('#import-status').innerText());
+await page.getByRole('link',{name:'Conditions',exact:true}).click();
+await page.evaluate(()=>{const s=document.querySelector('#conditions-reps').selectize;s.setValue(['A1','A2']);document.querySelector('#conditions-blanks').selectize.setValue(['B1'])});
+await page.locator('#conditions-save').click();await page.waitForTimeout(600);
+console.log('conditions:',await page.locator('#conditions-summary').innerText());
+await page.locator('#run').click();await page.waitForFunction(()=>document.querySelector('#status').innerText.includes('terminée'),null,{timeout:30000});
+await page.getByRole('link',{name:'Résultats',exact:true}).click();await page.waitForTimeout(1000);
+console.log('status:',await page.locator('#status').innerText());console.log('errors',errors);const shinyErrors=await page.locator('.shiny-output-error').allTextContents();console.log('shiny errors',shinyErrors);if(shinyErrors.length)throw Error(shinyErrors.join('; '));
+await page.getByRole('link',{name:'Export',exact:true}).click();
+const dl=page.waitForEvent('download');await page.locator('#csv').click();const file=await dl;console.log('download:',file.suggestedFilename());await file.saveAs(path.join(directory,'results.csv'));if(fs.readFileSync(path.join(directory,'results.csv'),'utf8').trim().split('\n').length!==99)throw Error('Expected 98 fitted rows');
+await page.screenshot({path:path.join(directory,'app.png'),fullPage:true});await b.close();if(errors.length)process.exitCode=1;
+})().catch(e=>{console.error(e);process.exit(1)});

@@ -10,6 +10,13 @@ Depends: R (>= 4.1)
 License: GLP3
 Encoding: UTF-8
 Imports: 
+    bslib (>= 0.9.0),
+    callr,
+    R6,
+    fs,
+    yaml,
+    htmlwidgets,
+    tidyselect,
     tidyverse,
     ggpattern,
     purrr,
@@ -49,6 +56,9 @@ Collate:
     'shiny_UI.R'
     'shiny_server.R'
     'utils.R'
+    'web_analysis.R'
+    'web_modules.R'
+    'web_app.R'
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

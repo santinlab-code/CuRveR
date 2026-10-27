@@ -22,3 +22,11 @@ To open CuRveR, run the following command in the R console :
 # Launch the GUI application
 CuRveR::run_curver()
 ```
+
+## Modern web application
+
+The default `CuRveR::run_curver()` now opens the modular Bootstrap 5 / bslib
+interface. The original UI remains available with
+`CuRveR::run_curver(legacy = TRUE)`.
+
+See [local Mac setup, scientific regression tests and server deployment](docs/modern-web-app.md).
