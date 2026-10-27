@@ -29,5 +29,5 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })();
 
 $(document).on('shiny:connected',()=>{
- Shiny.addCustomMessageHandler('curver-overview-resize',()=>{setTimeout(()=>window.dispatchEvent(new Event('resize')),200)});
+ Shiny.addCustomMessageHandler('curver-overview-resize',(message)=>{setTimeout(()=>window.dispatchEvent(new Event('resize')),200)});
 });

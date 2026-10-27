@@ -14,7 +14,7 @@ await page.locator('.navbar a[data-value="Conditions"]').click();
 await page.evaluate(()=>{const s=document.querySelector('#conditions-reps').selectize;s.setValue(['A1','A2']);document.querySelector('#conditions-blanks').selectize.setValue(['B1'])});
 await page.locator('#conditions-save').click();await page.waitForTimeout(600);
 console.log('conditions:',await page.locator('#conditions-summary').innerText());
-await page.locator('#run').click();await page.waitForFunction(()=>document.querySelector('#status').innerText.includes('terminée'),null,{timeout:30000});
+await page.locator('#run').click();await page.waitForFunction(()=>/terminée|complete/.test(document.querySelector('#status').innerText),null,{timeout:30000});
 await page.locator('.navbar a[data-value="Résultats"]').click();await page.waitForTimeout(1000);
 console.log('status:',await page.locator('#status').innerText());console.log('errors',errors);const shinyErrors=await page.locator('.shiny-output-error').allTextContents();console.log('shiny errors',shinyErrors);if(shinyErrors.length)throw Error(shinyErrors.join('; '));
 await page.locator('.navbar a[data-value="Export"]').click();
