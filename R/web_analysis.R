@@ -122,7 +122,9 @@ web_overview_plot <- function(data) {
     ggplot2::labs(x="Temps (heures écoulées pour Excel)",
       caption="Noir : OD600 (axe gauche) · Rouge : signal mCh (axe droit)")+
     ggplot2::theme_minimal(base_size=12)+
-    ggplot2::theme(axis.title.y.left=ggplot2::element_text(color="black"),
+    ggplot2::theme(plot.background=ggplot2::element_rect(fill="white",color=NA),
+      panel.background=ggplot2::element_rect(fill="white",color=NA),
+      axis.title.y.left=ggplot2::element_text(color="black"),
       axis.text.y.left=ggplot2::element_text(color="black"),
       axis.title.y.right=ggplot2::element_text(color="#c62828"),
       axis.text.y.right=ggplot2::element_text(color="#c62828"))
