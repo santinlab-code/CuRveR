@@ -51,6 +51,7 @@ web_analyze <- function(data, conditions, windows, loss = "LAD", seed = 42L) {
     if (anyNA(part$left) || anyNA(part$right)) stop("Fenêtres manquantes.")
     part <- part[part$Time >= part$left & part$Time <= part$right, ]
     blank_values <- part$value[part$well %in% unlist(cond$blanks)]
+    if(length(unlist(cond$blanks)) && !length(blank_values)) stop(paste("No blank measurements in selected windows:",signal))
     blank <- if (length(blank_values)) mean(blank_values) else NA_real_
     part <- part[part$well %in% unlist(cond$replicates), ]
     if (!is.na(blank)) part$value <- part$value - blank
@@ -180,4 +181,32 @@ web_triplet_conditions <- function(wells) {
   groups <- lapply(unique(keys),function(key) wells[keys==key])
   names(groups) <- vapply(groups,function(w) if(length(w)==1) w else paste(w[1],tail(w,1),sep="-"),"")
   lapply(groups,function(w) list(replicates=w,blanks=character()))
+}
+
+web_apply_global_blank <- function(conditions, blank_wells=character()) {
+  out <- lapply(conditions,function(condition){
+    condition$replicates <- setdiff(unlist(condition$replicates),blank_wells)
+    condition$blanks <- blank_wells
+    condition
+  })
+  out <- out[vapply(out,function(x)length(x$replicates)>0,logical(1))]
+  attr(out,"global_blank") <- blank_wells
+  out
+}
+
+# Historical correction: one blank mean per signal over the blank windows.
+# Used for window previews; web_analyze applies the same correction once to raw data.
+web_blank_correct <- function(data, blank_wells, windows=NULL) {
+  if(!length(blank_wells)) return(data)
+  for(signal in unique(data$signal)) {
+    blank <- data[data$signal==signal & data$well %in% blank_wells,]
+    if(!is.null(windows)) {
+      blank <- dplyr::left_join(blank,windows,by=c("signal","well"))
+      blank <- blank[blank$Time>=blank$left & blank$Time<=blank$right,]
+    }
+    if(!nrow(blank)) stop(paste("No blank measurements in selected windows:",signal))
+    i <- data$signal==signal
+    data$value[i] <- data$value[i]-mean(blank$value)
+  }
+  data
 }

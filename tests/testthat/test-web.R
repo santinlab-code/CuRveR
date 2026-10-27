@@ -117,3 +117,27 @@ test_that("technical triplets follow physical rows and columns", {
   expect_equal(CuRveR:::web_triplet_conditions(NULL),list())
   expect_false(grepl('value="Témoin"',as.character(CuRveR:::web_conditions_ui('c'))))
 })
+
+test_that("one global blank is applied to all conditions and excluded from fitting", {
+  groups<-CuRveR:::web_triplet_conditions(c(paste0("A",1:9)))
+  common<-CuRveR:::web_apply_global_blank(groups,paste0("A",7:9))
+  expect_equal(names(common),c("A1-A3","A4-A6"))
+  expect_true(all(vapply(common,function(x)identical(x$blanks,paste0("A",7:9)),logical(1))))
+  x<-seq(0,24,length.out=49);curve<-.1+.9/(1+exp(-.5*(x-12)))
+  d<-expand.grid(Time=x,well=paste0("A",1:9),signal=c("OD","Signal"),stringsAsFactors=FALSE)
+  d$value<-ifelse(d$signal=="OD",curve[match(d$Time,x)]+.05,1000*curve[match(d$Time,x)]+100)
+  d$value[d$well %in% paste0("A",7:9)]<-ifelse(d$signal[d$well %in% paste0("A",7:9)]=="OD",.05,100)
+  original<-d
+  windows<-unique(d[c("signal","well")]);windows$left<-0;windows$right<-24
+  corrected<-CuRveR:::web_blank_correct(d,paste0("A",7:9),windows)
+  expect_equal(d,original)
+  expect_equal(corrected$value[corrected$well=="A7"],rep(0,98))
+  result<-CuRveR:::web_analyze(d,common,windows)
+  expect_false(any(result$data$well %in% paste0("A",7:9)))
+  for(signal in c("OD","Signal"))for(condition in names(common)){
+    actual<-result$data[result$data$signal==signal & result$data$condition==condition,]
+    expected<-corrected[corrected$signal==signal & corrected$well %in% common[[condition]]$replicates,]
+    expect_equal(actual$value,expected$value)
+  }
+  expect_false(grepl('id="c-blanks"',as.character(CuRveR:::web_conditions_ui('c'))))
+})

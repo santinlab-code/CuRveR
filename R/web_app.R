@@ -38,7 +38,7 @@ modern_ui <- function() bslib::page_navbar(
 modern_server <- function(input,output,session) {
   data <- web_import_server("import")
   conditions <- web_conditions_server("conditions",data)
-  windows <- web_windows_server("windows",data)
+  windows <- web_windows_server("windows",data,conditions)
   result <- shiny::reactiveVal(NULL); job <- shiny::reactiveVal(NULL)
   status <- shiny::reactiveVal("Prêt. Ajoutez un signal pour commencer.")
   revision <- shiny::reactiveVal(0L); completed <- shiny::reactiveVal(-1L); launched <- 0L

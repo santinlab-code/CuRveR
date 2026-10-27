@@ -65,3 +65,11 @@ La couleur principale est RGB(0, 40, 75), soit #00284B. La barre latérale ne co
 ## Conditions techniques par défaut
 
 Après import, les puits sont pré-affectés par triplets de colonnes au sein de chaque ligne : A1–A3, A4–A6, A7–A9, A10–A12, puis B1–B3, etc. Les groupes restent modifiables et renommables. Les puits manquants créent un groupe partiel sans décaler les triplets suivants. Aucun blanc biologique n’est deviné ; il faut vérifier les affectations avant analyse. Le champ de nom d’une nouvelle condition est vide.
+
+## Blanc commun
+
+Dans Conditions, sélectionner une seule fois le triplet blanc dans le panneau latéral. Ce groupe est exclu des conditions à ajuster ; ses puits sont affectés comme blancs à toutes les conditions restantes. Le choix « Aucun » conserve les mesures sans correction. Les groupes incomplets restent sélectionnables si la plaque n’inclut pas leurs trois puits.
+
+La correction conserve le calcul historique : pour chaque signal (OD et fluorescence séparément), soustraction de la moyenne des mesures des puits blancs dans leurs fenêtres sélectionnées. Il s’agit d’une moyenne globale dans ces fenêtres, pas d’une soustraction point par point dans le temps. Les fenêtres affichent les données corrigées ; l’analyse repart des mesures brutes et applique la correction une seule fois. Les données ajustées et exportées sont corrigées. Import et Aperçu restent des vues des mesures brutes. Modifier le choix du blanc invalide les anciens résultats et nécessite de relancer l’analyse.
+
+L’export YAML des conditions conserve la structure historique avec les mêmes puits blancs dans chaque condition. À l’import, un seul blanc commun correspondant à un groupe de la plaque est accepté ; des blancs différents par condition donnent un message d’erreur explicite.

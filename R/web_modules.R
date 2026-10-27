@@ -80,31 +80,39 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
 
 web_conditions_ui <- function(id) {
   ns <- shiny::NS(id)
-  shiny::tagList(shiny::selectInput(ns("selected"),"Condition",NULL),shiny::textInput(ns("name"),"Nom",""),
-    shiny::selectizeInput(ns("reps"),"Réplicats",NULL,multiple=TRUE),shiny::selectizeInput(ns("blanks"),"Blancs",NULL,multiple=TRUE),
+  bslib::layout_columns(col_widths=c(3,9),
+    bslib::card(shiny::selectInput(ns("global_blank"),"Triplet blanc commun",choices=c("Aucun"="")),shiny::helpText("Soustrait à toutes les conditions, séparément pour chaque signal. Le triplet blanc est exclu des ajustements.")),
+    shiny::tagList(shiny::selectInput(ns("selected"),"Condition",NULL),shiny::textInput(ns("name"),"Nom",""),
+    shiny::selectizeInput(ns("reps"),"Réplicats",NULL,multiple=TRUE),
     shiny::actionButton(ns("save"),"Enregistrer / renommer",class="btn-primary"),shiny::actionButton(ns("new"),"Nouvelle condition"),
     shiny::actionButton(ns("delete"),"Supprimer"),shiny::fileInput(ns("yaml"),"Importer une configuration YAML",accept=c(".yml",".yaml")),
-    shiny::downloadButton(ns("download"),"Exporter YAML"),shiny::tableOutput(ns("summary")))
+    shiny::downloadButton(ns("download"),"Exporter YAML"),shiny::tableOutput(ns("summary"))))
 }
 web_conditions_server <- function(id,data) shiny::moduleServer(id,function(input,output,session){
   conditions <- shiny::reactiveVal(list())
-  shiny::observeEvent(data(),{ wells<-unique(data()$well); conditions(web_triplet_conditions(wells))
+  triplets <- shiny::reactiveVal(list())
+  effective <- shiny::reactive({
+    blank <- triplets()[[input$global_blank %||% ""]]
+    web_apply_global_blank(conditions(),blank$replicates %||% character())
+  })
+  shiny::observeEvent(data(),{ wells<-unique(data()$well); conditions(web_triplet_conditions(wells));triplets(web_triplet_conditions(wells))
+    shiny::updateSelectInput(session,"global_blank",choices=c("Aucun"="",stats::setNames(names(triplets()),names(triplets()))),selected="")
     shiny::updateTextInput(session,"name",value="")
     shiny::updateSelectInput(session,"selected",selected="")
-    shiny::updateSelectizeInput(session,"reps",choices=wells);shiny::updateSelectizeInput(session,"blanks",choices=wells)
+    shiny::updateSelectizeInput(session,"reps",choices=wells)
   },ignoreNULL=FALSE)
-  shiny::observeEvent(conditions(),shiny::updateSelectInput(session,"selected",choices=c("Nouvelle"="",stats::setNames(names(conditions()),names(conditions())))))
+  shiny::observeEvent(effective(),shiny::updateSelectInput(session,"selected",choices=c("Nouvelle"="",stats::setNames(names(effective()),names(effective())))))
   shiny::observeEvent(input$selected,{
     c <- conditions()[[input$selected]]
-    if(!is.null(c)){shiny::updateTextInput(session,"name",value=input$selected);shiny::updateSelectizeInput(session,"reps",selected=unlist(c$replicates));shiny::updateSelectizeInput(session,"blanks",selected=unlist(c$blanks))}
+    if(!is.null(c)){shiny::updateTextInput(session,"name",value=input$selected);shiny::updateSelectizeInput(session,"reps",selected=unlist(c$replicates))}
   })
-  shiny::observeEvent(input$new, {shiny::updateSelectInput(session,"selected",selected="");shiny::updateTextInput(session,"name",value="");shiny::updateSelectizeInput(session,"reps",selected=character());shiny::updateSelectizeInput(session,"blanks",selected=character())})
+  shiny::observeEvent(input$new, {shiny::updateSelectInput(session,"selected",selected="");shiny::updateTextInput(session,"name",value="");shiny::updateSelectizeInput(session,"reps",selected=character())})
   shiny::observeEvent(input$save,{
     tryCatch({
       name <- trimws(input$name); c <- conditions()
       if(!nzchar(name)) stop("Nommez la condition.")
       if(name %in% names(c) && name != input$selected) stop("Ce nom existe déjà.")
-      candidate <- stats::setNames(list(list(replicates=input$reps,blanks=input$blanks)),name)
+      candidate <- stats::setNames(list(list(replicates=input$reps,blanks=character())),name)
       web_validate_conditions(candidate,unique(data()$well))
       if(nzchar(input$selected)) c[[input$selected]] <- NULL
       c[[name]] <- candidate[[1]];conditions(c)
@@ -112,11 +120,18 @@ web_conditions_server <- function(id,data) shiny::moduleServer(id,function(input
   })
   shiny::observeEvent(input$delete,{c<-conditions();c[[input$selected]]<-NULL;conditions(c)})
   shiny::observeEvent(input$yaml,{
-    tryCatch({c<-yaml::read_yaml(input$yaml$datapath,eval.expr=FALSE);web_validate_conditions(c,unique(data()$well));conditions(c)},error=function(e) shiny::showNotification(conditionMessage(e),type="error"))
+    tryCatch({c<-yaml::read_yaml(input$yaml$datapath,eval.expr=FALSE);web_validate_conditions(c,unique(data()$well))
+      blanks<-lapply(c,function(x)sort(unlist(x$blanks)))
+      if(length(unique(blanks))>1) stop("Le fichier doit définir un seul blanc commun.")
+      shared<-blanks[[1]]
+      selected<-names(triplets())[vapply(triplets(),function(x)setequal(x$replicates,shared),logical(1))]
+      if(length(shared) && !length(selected)) stop("Le blanc doit correspondre à un triplet de la plaque.")
+      for(i in seq_along(c)) c[[i]]$blanks<-character()
+      conditions(c);shiny::updateSelectInput(session,"global_blank",selected=if(length(selected))selected[1] else "")},error=function(e) shiny::showNotification(conditionMessage(e),type="error"))
   })
-  output$download <- shiny::downloadHandler(filename=function()"conditions.yaml",content=function(file)yaml::write_yaml(conditions(),file))
-  output$summary <- shiny::renderTable({c<-conditions();if(!length(c))return(NULL);data.frame(Condition=names(c),Réplicats=vapply(c,function(x)paste(unlist(x$replicates),collapse=", "),""),Blancs=vapply(c,function(x)paste(unlist(x$blanks),collapse=", "),""))})
-  conditions
+  output$download <- shiny::downloadHandler(filename=function()"conditions.yaml",content=function(file)yaml::write_yaml(effective(),file))
+  output$summary <- shiny::renderTable({c<-effective();if(!length(c))return(NULL);data.frame(Condition=names(c),Réplicats=vapply(c,function(x)paste(unlist(x$replicates),collapse=", "),""))})
+  effective
 })
 
 web_windows_ui <- function(id) {
@@ -127,7 +142,7 @@ web_windows_ui <- function(id) {
     shiny::actionButton(ns("apply"),"Appliquer la fenêtre"),
     shiny::plotOutput(ns("plot"),brush=shiny::brushOpts(ns("brush"),direction="x")),shiny::tableOutput(ns("windows")))
 }
-web_windows_server <- function(id,data) shiny::moduleServer(id,function(input,output,session){
+web_windows_server <- function(id,data,conditions=NULL) shiny::moduleServer(id,function(input,output,session){
   windows<-shiny::reactiveVal(NULL)
   shiny::observeEvent(data(),{
     if(is.null(data())){windows(NULL);return()}
@@ -146,7 +161,9 @@ web_windows_server <- function(id,data) shiny::moduleServer(id,function(input,ou
     w$left[i]<-input$left;w$right[i]<-input$right;windows(w)
   })
   output$plot<-shiny::renderPlot({shiny::req(data(),windows(),input$signal,input$well)
-    d<-data();d<-d[d$signal==input$signal & d$well==input$well,]
+    d<-data()
+    if(!is.null(conditions)) d<-web_blank_correct(d,attr(conditions(),"global_blank"),windows())
+    d<-d[d$signal==input$signal & d$well==input$well,]
     ggplot2::ggplot(d,ggplot2::aes(Time,value))+ggplot2::geom_line(color="#00284B")+ggplot2::geom_point()+ggplot2::geom_vline(xintercept=c(input$left,input$right),linetype=2)+ggplot2::theme_minimal()
   })
   output$windows<-shiny::renderTable(windows())
