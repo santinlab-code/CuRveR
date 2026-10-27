@@ -155,11 +155,15 @@ web_conditions_server <- function(id,data) shiny::moduleServer(id,function(input
 
 web_windows_ui <- function(id) {
   ns<-shiny::NS(id)
-  shiny::tagList(shiny::selectInput(ns("signal"),"Signal",NULL),shiny::selectInput(ns("well"),"Puits",NULL),
-    shiny::checkboxInput(ns("all"),"Appliquer à tous les puits et signaux",FALSE),
-    shiny::numericInput(ns("left"),"Début",0),shiny::numericInput(ns("right"),"Fin",24),
-    shiny::actionButton(ns("apply"),"Appliquer la fenêtre"),
-    shiny::plotOutput(ns("plot"),brush=shiny::brushOpts(ns("brush"),direction="x")),shiny::tableOutput(ns("windows")))
+  shiny::div(style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;",
+    shiny::div(style="flex:1 1 240px;min-width:220px;",
+      shiny::selectInput(ns("signal"),"Signal",NULL),shiny::selectInput(ns("well"),"Puits",NULL),
+      shiny::checkboxInput(ns("all"),"Appliquer à tous les puits et signaux",FALSE),
+      shiny::numericInput(ns("left"),"Début",0),shiny::numericInput(ns("right"),"Fin",24),
+      shiny::actionButton(ns("apply"),"Appliquer la fenêtre")),
+    shiny::div(style="flex:3 1 400px;min-width:280px;height:500px;min-height:500px;",
+      shiny::plotOutput(ns("plot"),height="500px",fill=FALSE,
+        brush=shiny::brushOpts(ns("brush"),direction="x"))))
 }
 web_windows_server <- function(id,data,conditions=NULL) shiny::moduleServer(id,function(input,output,session){
   windows<-shiny::reactiveVal(NULL)
@@ -184,7 +188,9 @@ web_windows_server <- function(id,data,conditions=NULL) shiny::moduleServer(id,f
     if(!is.null(conditions)) d<-web_blank_correct(d,attr(conditions(),"global_blank"),windows())
     d<-d[d$signal==input$signal & d$well==input$well,]
     ggplot2::ggplot(d,ggplot2::aes(Time,value))+ggplot2::geom_line(color="#00284B")+ggplot2::geom_point()+ggplot2::geom_vline(xintercept=c(input$left,input$right),linetype=2)+ggplot2::theme_minimal()
+  },height=500,res=96,execOnResize=TRUE,width=function(){
+    width<-session$clientData$output_plot_width
+    if(is.null(width) || !is.finite(width) || width<100) 800 else width
   })
-  output$windows<-shiny::renderTable(windows())
   windows
 })

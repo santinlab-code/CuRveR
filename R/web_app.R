@@ -10,7 +10,7 @@ modern_ui <- function() bslib::page_navbar(
     bslib::card_body(fillable=FALSE,shiny::uiOutput("overview_container")),
     bslib::card_footer(shiny::downloadButton("overview_export","Exporter l’aperçu PDF")))),
   bslib::nav_panel("Conditions",bslib::card(bslib::card_header("Réplicats et blancs"),web_conditions_ui("conditions"))),
-  bslib::nav_panel("Fenêtres",bslib::card(bslib::card_header("Sélectionnez une zone du graphique ou saisissez ses bornes"),web_windows_ui("windows"))),
+  bslib::nav_panel("Fenêtres",bslib::card(fill=FALSE,bslib::card_header("Sélectionnez une zone du graphique ou saisissez ses bornes"),bslib::card_body(fillable=FALSE,web_windows_ui("windows")))),
   bslib::nav_panel("Résultats",bslib::card(
     shiny::actionButton("run","Lancer l’analyse",class="btn-primary"),shiny::actionButton("cancel","Annuler"),
     shiny::selectInput("signal","Signal",NULL),shiny::checkboxGroupInput("conditions","Conditions",NULL,inline=TRUE),
