@@ -96,3 +96,34 @@ web_plot <- function(result, signal, conditions, type="curves", features=c("poin
   }
   p + ggplot2::theme_minimal(base_size=13) + ggplot2::labs(x="Temps (unité du fichier)",y="Signal corrigé",color="Condition",fill="Condition")
 }
+
+# A single invertible display transform, shared by all well panels.
+# Original values and the scientific pipeline are never rescaled.
+web_overview_plot <- function(data) {
+  od <- attr(data,"od_signal")
+  fluorescence <- attr(data,"fluorescence_signal")
+  if(is.null(od)) od <- unique(data$signal)[1]
+  if(is.null(fluorescence)) {
+    return(ggplot2::ggplot(data,ggplot2::aes(Time,value,group=signal))+
+      ggplot2::geom_line(color="black")+ggplot2::facet_wrap(~well)+
+      ggplot2::labs(x="Temps (unité du fichier)",y=od)+ggplot2::theme_minimal())
+  }
+  left <- data[data$signal==od,]
+  right <- data[data$signal==fluorescence,]
+  amplitude <- function(x) {m<-max(abs(x),na.rm=TRUE);if(!is.finite(m)||m==0) 1 else m}
+  factor <- amplitude(right$value)/amplitude(left$value)
+  right$display_value <- right$value/factor
+  ggplot2::ggplot(left,ggplot2::aes(Time,value))+
+    ggplot2::geom_line(color="black")+
+    ggplot2::geom_line(data=right,ggplot2::aes(y=display_value),color="#c62828")+
+    ggplot2::facet_wrap(~well)+
+    ggplot2::scale_y_continuous(name=paste0("OD600 — ",od),
+      sec.axis=ggplot2::sec_axis(~ . * factor,name=paste0("Signal mCh — ",fluorescence)))+
+    ggplot2::labs(x="Temps (heures écoulées pour Excel)",
+      caption="Noir : OD600 (axe gauche) · Rouge : signal mCh (axe droit)")+
+    ggplot2::theme_minimal(base_size=12)+
+    ggplot2::theme(axis.title.y.left=ggplot2::element_text(color="black"),
+      axis.text.y.left=ggplot2::element_text(color="black"),
+      axis.title.y.right=ggplot2::element_text(color="#c62828"),
+      axis.text.y.right=ggplot2::element_text(color="#c62828"))
+}

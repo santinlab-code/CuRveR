@@ -59,3 +59,18 @@ test_that("decreasing curves, windows and multiple signals remain reproducible",
   expect_true(all(is.finite(a$data$fit)))
   expect_equal(sort(unique(a$data$signal)),c("A","Z"))
 })
+
+test_that("overview uses reversible dual axes without changing measurements", {
+  d<-data.frame(Time=rep(0:2,2),well="A1",signal=rep(c("OD","mCh"),each=3),value=c(.2,.4,.6,200,400,600))
+  attr(d,"od_signal")<-"OD";attr(d,"fluorescence_signal")<-"mCh"
+  original<-d;p<-CuRveR:::web_overview_plot(d)
+  built<-ggplot2::ggplot_build(p)
+  expect_equal(d,original)
+  expect_equal(built$data[[1]]$y,c(.2,.4,.6))
+  expect_equal(built$data[[2]]$y,c(.2,.4,.6))
+  expect_equal(p$scales$get_scales("y")$secondary.axis$trans(built$data[[2]]$y),c(200,400,600))
+  expect_equal(unique(built$data[[1]]$colour),"black")
+  expect_equal(unique(built$data[[2]]$colour),"#c62828")
+  d$value<-0
+  expect_true(all(is.finite(ggplot2::ggplot_build(CuRveR:::web_overview_plot(d))$data[[2]]$y)))
+})

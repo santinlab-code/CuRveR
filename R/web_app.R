@@ -72,7 +72,7 @@ modern_server <- function(input,output,session) {
   })
   shiny::observeEvent(input$cancel,{if(!is.null(job())){job()$kill();job(NULL);status("Analyse annulée.")}})
   session$onSessionEnded(function(){p<-shiny::isolate(job());if(!is.null(p))p$kill()})
-  overview <- shiny::reactive({shiny::req(data());ggplot2::ggplot(data(),ggplot2::aes(Time,value,color=signal))+ggplot2::geom_line()+ggplot2::facet_wrap(~well)+ggplot2::theme_minimal()})
+  overview <- shiny::reactive({shiny::req(data());web_overview_plot(data())})
   output$overview <- shiny::renderPlot(overview())
   plot <- shiny::reactive({shiny::req(result(),input$signal,input$conditions)
     p<-web_plot(result(),input$signal,input$conditions,input$plot_type,input$features,input$metric)

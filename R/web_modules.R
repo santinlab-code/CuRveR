@@ -5,7 +5,8 @@ web_import_ui <- function(id) {
     shiny::selectInput(ns("time"),"Colonne temps",choices=NULL),
     shiny::helpText("Les puits sont détectés automatiquement, sans les colonnes de température. Les temps Excel sont exprimés en heures écoulées depuis la première mesure de chaque feuille."),
     shiny::actionButton(ns("pair"),"Importer OD + signal",class="btn-primary"),
-    shiny::actionButton(ns("reset"),"Nouvelle analyse"),shiny::textOutput(ns("status")),shiny::tableOutput(ns("preview")))
+    shiny::actionButton(ns("reset"),"Nouvelle analyse"),shiny::textOutput(ns("status")),
+    shiny::radioButtons(ns("preview_signal"),"Afficher dans le tableau",choices=c("OD600"="od","Signal mCh"="mch"),selected="od",inline=TRUE),shiny::tableOutput(ns("preview")))
 }
 web_import_server <- function(id) shiny::moduleServer(id,function(input,output,session) {
   data <- shiny::reactiveVal(NULL)
@@ -38,6 +39,13 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
   })
   output$preview <- shiny::renderTable({
     d <- raw(); shiny::req(input$time)
+    if (identical(input$preview_signal,"mch")) {
+      shiny::req(input$files,input$file,input$mch)
+      f <- input$files[as.integer(input$file),]
+      if(tolower(tools::file_ext(f$name)) %in% c("xls","xlsx"))
+        d <- readxl::read_excel(f$datapath,sheet=input$mch)
+    }
+    shiny::validate(shiny::need(input$time %in% names(d),"Colonne temps absente de cette feuille."))
     if (input$time %in% names(d) && inherits(d[[input$time]],c("POSIXt","Date")))
       d[[input$time]] <- as.numeric(difftime(d[[input$time]],d[[input$time]][1],units="hours"))
     utils::head(d[c(input$time,names(d)[grepl("^[A-Za-z][0-9]+$",names(d))])],8)
@@ -58,7 +66,10 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
         wells<-names(d)[grepl("^[A-Za-z][0-9]+$",names(d))]
         web_prepare(d,input$time,wells,sheet)
       })
-      data(dplyr::bind_rows(signals))
+      combined <- dplyr::bind_rows(signals)
+      attr(combined,"od_signal") <- if(excel) input$od else f$name
+      attr(combined,"fluorescence_signal") <- if(excel) input$mch else NULL
+      data(combined)
       shiny::showNotification("OD et signal importés. Vous pouvez définir les conditions.")
     },error=function(e)shiny::showNotification(conditionMessage(e),type="error",duration=NULL))
   })
