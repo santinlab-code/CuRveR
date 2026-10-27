@@ -27,3 +27,7 @@ function start(){translate();document.addEventListener('change',e=>{if(e.target.
  new MutationObserver(translate).observe(document.body,{childList:true,subtree:true,characterData:true});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
+
+$(document).on('shiny:connected',()=>{
+ Shiny.addCustomMessageHandler('curver-overview-resize',()=>{setTimeout(()=>window.dispatchEvent(new Event('resize')),200)});
+});

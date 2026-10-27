@@ -10,7 +10,7 @@ modern_ui <- function() bslib::page_navbar(
     shiny::actionButton("run","Lancer l’analyse",class="btn-primary"),shiny::actionButton("cancel","Annuler"),
     shiny::textOutput("status"),shiny::p("Excel times are converted to minutes. Blanks are subtracted using the historical calculation.")),
   bslib::nav_panel("Import",bslib::card(bslib::card_header("Fichiers et préparation"),web_import_ui("import"))),
-  bslib::nav_panel("Aperçu",bslib::card(shiny::plotOutput("overview",height="600px"),shiny::downloadButton("overview_export","Exporter l’aperçu PDF"))),
+  bslib::nav_panel("Aperçu",bslib::card(shiny::plotOutput("overview",height="900px"),shiny::downloadButton("overview_export","Exporter l’aperçu PDF"))),
   bslib::nav_panel("Conditions",bslib::card(bslib::card_header("Réplicats et blancs"),web_conditions_ui("conditions"))),
   bslib::nav_panel("Fenêtres",bslib::card(bslib::card_header("Sélectionnez une zone du graphique ou saisissez ses bornes"),web_windows_ui("windows"))),
   bslib::nav_panel("Résultats",bslib::card(
@@ -74,11 +74,17 @@ modern_server <- function(input,output,session) {
   session$onSessionEnded(function(){p<-shiny::isolate(job());if(!is.null(p))p$kill()})
   overview <- shiny::reactive({shiny::req(data());web_overview_plot(data(),input$language %||% "en")})
   output$overview <- shiny::renderPlot({
-    shiny::req(data())
+    shiny::validate(shiny::need(!is.null(data()), if(identical(input$language,"fr")) "Importez les données avec le bouton Importer OD + signal." else "Import data using the Import OD + signal button first."))
     tryCatch(print(overview()), error=function(e) {
       shiny::validate(shiny::need(FALSE,paste(if(identical(input$language,"fr")) "Impossible de tracer l’aperçu :" else "Cannot render overview:",conditionMessage(e))))
     })
-  },res=96)
+  },res=96,height=900,width=function(){
+    width <- session$clientData$output_overview_width
+    if(is.null(width) || !is.finite(width) || width<100) 1200 else width
+  },execOnResize=TRUE)
+  shiny::observeEvent(input$page,{
+    if(identical(input$page,"Aperçu")) session$sendCustomMessage("curver-overview-resize",list())
+  })
   plot <- shiny::reactive({shiny::req(result(),input$signal,input$conditions)
     p<-web_plot(result(),input$signal,input$conditions,input$plot_type,input$features,input$metric)
     if(isTRUE(input$use_zoom) && !is.null(input$zoom) && input$plot_type!="metrics")p<-p+ggplot2::coord_cartesian(xlim=c(input$zoom$xmin,input$zoom$xmax))
