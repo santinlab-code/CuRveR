@@ -10,7 +10,9 @@ modern_ui <- function() bslib::page_navbar(
     shiny::actionButton("run","Lancer l’analyse",class="btn-primary"),shiny::actionButton("cancel","Annuler"),
     shiny::textOutput("status"),shiny::p("Excel times are converted to minutes. Blanks are subtracted using the historical calculation.")),
   bslib::nav_panel("Import",bslib::card(bslib::card_header("Fichiers et préparation"),web_import_ui("import"))),
-  bslib::nav_panel("Aperçu",bslib::card(shiny::plotOutput("overview",height="900px"),shiny::downloadButton("overview_export","Exporter l’aperçu PDF"))),
+  bslib::nav_panel("Aperçu",bslib::card(fill=FALSE,
+    bslib::card_body(fillable=FALSE,shiny::div(style="height:900px;min-height:900px;flex-shrink:0;",shiny::plotOutput("overview",height="900px",fill=FALSE))),
+    bslib::card_footer(shiny::downloadButton("overview_export","Exporter l’aperçu PDF")))),
   bslib::nav_panel("Conditions",bslib::card(bslib::card_header("Réplicats et blancs"),web_conditions_ui("conditions"))),
   bslib::nav_panel("Fenêtres",bslib::card(bslib::card_header("Sélectionnez une zone du graphique ou saisissez ses bornes"),web_windows_ui("windows"))),
   bslib::nav_panel("Résultats",bslib::card(

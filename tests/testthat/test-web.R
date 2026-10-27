@@ -81,3 +81,12 @@ test_that("language defaults to English and signal labels are generic", {
   expect_match(ui,'value="en" selected="selected"')
   expect_false(grepl("Feuille signal \\(mCh\\)",ui))
 })
+
+test_that("overview aligns nonzero minima and maxima with an invertible axis", {
+  d<-data.frame(Time=rep(0:2,2),well="A1",signal=rep(c("OD","mCh"),each=3),value=c(.2,.4,.6,1000,3000,5000))
+  attr(d,"od_signal")<-"OD";attr(d,"fluorescence_signal")<-"mCh"
+  p<-CuRveR:::web_overview_plot(d);built<-ggplot2::ggplot_build(p)
+  expect_equal(range(built$data[[1]]$y),range(built$data[[2]]$y))
+  expect_equal(p$scales$get_scales("y")$secondary.axis$trans(built$data[[2]]$y),c(1000,3000,5000))
+  expect_equal(d$value,c(.2,.4,.6,1000,3000,5000))
+})

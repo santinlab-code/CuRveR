@@ -53,3 +53,7 @@ shiny::runApp("inst/myapp", launch.browser = FALSE)
 Déployer le package et `inst/myapp` sur Shiny Server ou Posit Connect, avec HTTPS et authentification configurés par l’hébergeur si nécessaire. Prévoir WebSockets, limites d’upload, CPU/mémoire et limites de sessions : chaque analyse active crée un processus R. Les fichiers téléversés sont temporaires et propres à la session ; ne pas exposer le sélecteur de fichiers de l’interface historique sur un serveur partagé. Aucun serveur distant n’a été déployé et macOS n’a pas été exécuté dans cet environnement Linux.
 
 Les versions des dépendances ne sont pas encore verrouillées pour toutes les plateformes : lancer les tests après installation ou mise à jour. Pour une publication scientifique, archiver les données sources, la configuration et les versions des dépendances.
+
+## Axes de l’aperçu
+
+L’OD (noir, gauche) et le signal (rouge, droite) utilisent une transformation affine globale : minimum OD aligné sur minimum signal et maximum OD aligné sur maximum signal. La même transformation est partagée entre tous les puits. Les axes affichent les unités réelles ; les données et les calculs ne sont pas transformés. Les croisements dépendent de ces échelles d’affichage et ne constituent pas une égalité de mesures entre OD et fluorescence. Les séries constantes utilisent une plage élargie pour garder une transformation inversible.

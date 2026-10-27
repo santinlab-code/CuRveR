@@ -110,17 +110,27 @@ web_overview_plot <- function(data, language="en") {
   }
   left <- data[data$signal==od,]
   right <- data[data$signal==fluorescence,]
-  amplitude <- function(x) {m<-max(abs(x),na.rm=TRUE);if(!is.finite(m)||m==0) 1 else m}
-  factor <- amplitude(right$value)/amplitude(left$value)
-  right$display_value <- right$value/factor
+  # Align endpoints using one affine transform across all wells, preserving
+  # comparability between panels and the inverse axis in original units.
+  axis_range <- function(x) {
+    r <- range(x,finite=TRUE)
+    if(!all(is.finite(r))) stop("No finite measurements for overview.")
+    if(diff(r)==0) r <- r + c(-.5,.5)*max(1,abs(r[1]))
+    r
+  }
+  od_range <- axis_range(left$value)
+  signal_range <- axis_range(right$value)
+  factor <- diff(signal_range)/diff(od_range)
+  offset <- signal_range[1]-od_range[1]*factor
+  right$display_value <- (right$value-offset)/factor
   ggplot2::ggplot(left,ggplot2::aes(Time,value))+
     ggplot2::geom_line(color="black")+
     ggplot2::geom_line(data=right,ggplot2::aes(y=display_value),color="#c62828")+
     ggplot2::facet_wrap(~well)+
     ggplot2::scale_y_continuous(name=paste0("OD600 — ",od),
-      sec.axis=ggplot2::sec_axis(function(x) x * factor,name=paste0("Signal — ",fluorescence)))+
+      sec.axis=ggplot2::sec_axis(function(x) x * factor + offset,name=paste0("Signal — ",fluorescence)))+
     ggplot2::labs(x=if(language=="fr") "Temps (minutes pour Excel)" else "Time (minutes for Excel)",
-      caption=if(language=="fr") "Noir : OD600 (axe gauche) · Rouge : signal (axe droit)" else "Black: OD600 (left axis) · Red: signal (right axis)")+
+      caption=if(language=="fr") "Noir : OD600 (axe gauche) · Rouge : signal (axe droit). Minima et maxima des axes alignés." else "Black: OD600 (left axis) · Red: signal (right axis). Axis minima and maxima aligned.")+
     ggplot2::theme_minimal(base_size=12)+
     ggplot2::theme(plot.background=ggplot2::element_rect(fill="white",color=NA),
       panel.background=ggplot2::element_rect(fill="white",color=NA),

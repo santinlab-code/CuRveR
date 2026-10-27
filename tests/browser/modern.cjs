@@ -10,6 +10,11 @@ await page.waitForTimeout(1500);await page.locator('#import-files').setInputFile
 await page.waitForFunction(()=>document.querySelector('#import-time')?.options.length>0);
 await page.waitForTimeout(1500);await page.locator('#import-pair').click();await page.waitForFunction(()=>document.querySelector('#import-status').innerText.includes('1 signal'));
 console.log('import:',await page.locator('#import-status').innerText());
+await page.locator('.navbar a[data-value="Aperçu"]').click();
+await page.locator('#overview img').waitFor();
+const graphBox=await page.locator('#overview').boundingBox();
+const pdfBox=await page.locator('#overview_export').boundingBox();
+if(pdfBox.y<graphBox.y+graphBox.height)throw Error('PDF button overlaps overview');
 await page.locator('.navbar a[data-value="Conditions"]').click();
 await page.evaluate(()=>{const s=document.querySelector('#conditions-reps').selectize;s.setValue(['A1','A2']);document.querySelector('#conditions-blanks').selectize.setValue(['B1'])});
 await page.locator('#conditions-save').click();await page.waitForTimeout(600);
