@@ -12,7 +12,7 @@ CuRveR::run_curver()
 CuRveR::run_curver(legacy = TRUE)
 ```
 
-L’interface s’ouvre dans le navigateur ; les calculs restent en R local. Le serveur ne nécessite ni compte ni API. CSV : virgule comme séparateur et point décimal ; TSV : tabulation. Pour Excel, choisir une feuille. Ajouter chaque signal explicitement ; les fichiers multiples peuvent alimenter plusieurs signaux. Temps et mesures doivent être numériques, finis, et le temps trié. L’unité temporelle du fichier est conservée.
+L’interface s’ouvre dans le navigateur ; les calculs restent en R local. Le serveur ne nécessite ni compte ni API. CSV : virgule comme séparateur et point décimal ; TSV : tabulation. Pour Excel, choisir une feuille. Ajouter chaque signal explicitement ; les fichiers multiples peuvent alimenter plusieurs signaux. Temps et mesures doivent être numériques, finis, et le temps trié. Les temps Excel sont convertis en minutes écoulées depuis la première mesure de chaque feuille (les taux sont donc exprimés par minute). Les temps numériques CSV gardent leur unité d’origine.
 
 Les conditions définissent des réplicats et des blancs ; elles peuvent être importées/exportées en YAML. Ajouter un signal réinitialise les conditions et fenêtres : préparer tous les signaux avant ces étapes. Les fenêtres se règlent par puits/signal ou globalement. Un ajustement demande au moins cinq temps distincts et un signal non constant. Les figures disposent de vues courbes, paramètres et annotations ; le zoom se fait par sélection puis activation du zoom. Les tableaux complets sont téléchargeables.
 
@@ -25,7 +25,9 @@ Les conditions définissent des réplicats et des blancs ; elles peuvent être i
 
 Richard et l’évolution différentielle sont les méthodes opérationnelles proposées. Les fonctions de coût R existantes sont exposées ; contrairement à l’ancienne interface, la sélection est appliquée. Le modèle linéaire et Nelder–Mead historiques sont incomplets ; ils ne sont pas annoncés comme opérationnels. Leur code et l’interface historique restent accessibles.
 
-Les blancs sont moyennés dans leurs fenêtres par condition et signal, puis soustraits aux réplicats. Sans blanc, les valeurs sont conservées. La graine fixe rend un run reproductible dans le même environnement. Les résultats sont invalidés visuellement lorsque les paramètres changent et leur export est bloqué jusqu’au recalcul. Une erreur ou annulation conserve les anciens résultats sans les présenter comme ceux du calcul interrompu.
+Les blancs sont moyennés dans leurs fenêtres par condition et signal, puis soustraits aux réplicats. Sans blanc, les valeurs sont conservées. La graine fixe rend un run reproductible dans le même environnement. Les résultats sont invalidés visuellement lorsque les paramètres changent et leur export est bloqué jusqu’au recalcul. Le sélecteur EN/FR en haut à gauche change la langue sans réinitialiser les données ; l’anglais est sélectionné au lancement.
+
+Une erreur ou annulation conserve les anciens résultats sans les présenter comme ceux du calcul interrompu.
 
 L’exécution via `callr` utilise un processus R séparé, arrêté à l’annulation ou à la fermeture de session. L’indicateur affiche un état de calcul, pas un pourcentage artificiel. L’export YAML contient les conditions, fenêtres, coût, graine, version R et version du package. Ce fichier est un compte rendu ; seul le YAML des conditions dispose actuellement d’un import dédié.
 

@@ -99,7 +99,7 @@ web_plot <- function(result, signal, conditions, type="curves", features=c("poin
 
 # A single invertible display transform, shared by all well panels.
 # Original values and the scientific pipeline are never rescaled.
-web_overview_plot <- function(data) {
+web_overview_plot <- function(data, language="en") {
   od <- attr(data,"od_signal")
   fluorescence <- attr(data,"fluorescence_signal")
   if(is.null(od)) od <- unique(data$signal)[1]
@@ -118,9 +118,9 @@ web_overview_plot <- function(data) {
     ggplot2::geom_line(data=right,ggplot2::aes(y=display_value),color="#c62828")+
     ggplot2::facet_wrap(~well)+
     ggplot2::scale_y_continuous(name=paste0("OD600 — ",od),
-      sec.axis=ggplot2::sec_axis(~ . * factor,name=paste0("Signal mCh — ",fluorescence)))+
-    ggplot2::labs(x="Temps (heures écoulées pour Excel)",
-      caption="Noir : OD600 (axe gauche) · Rouge : signal mCh (axe droit)")+
+      sec.axis=ggplot2::sec_axis(function(x) x * factor,name=paste0("Signal — ",fluorescence)))+
+    ggplot2::labs(x=if(language=="fr") "Temps (minutes pour Excel)" else "Time (minutes for Excel)",
+      caption=if(language=="fr") "Noir : OD600 (axe gauche) · Rouge : signal (axe droit)" else "Black: OD600 (left axis) · Red: signal (right axis)")+
     ggplot2::theme_minimal(base_size=12)+
     ggplot2::theme(plot.background=ggplot2::element_rect(fill="white",color=NA),
       panel.background=ggplot2::element_rect(fill="white",color=NA),

@@ -1,12 +1,12 @@
 web_import_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(shiny::fileInput(ns("files"),"Importer des fichiers",multiple=TRUE,accept=c(".csv",".tsv",".txt",".xls",".xlsx")),
-    shiny::selectInput(ns("file"),"Fichier à analyser",choices=NULL),shiny::selectInput(ns("od"),"Feuille OD",NULL), shiny::selectInput(ns("mch"),"Feuille signal (mCh)",NULL),
+    shiny::selectInput(ns("file"),"Fichier à analyser",choices=NULL),shiny::selectInput(ns("od"),"Feuille OD",NULL), shiny::selectInput(ns("mch"),"Feuille signal",NULL),
     shiny::selectInput(ns("time"),"Colonne temps",choices=NULL),
-    shiny::helpText("Les puits sont détectés automatiquement, sans les colonnes de température. Les temps Excel sont exprimés en heures écoulées depuis la première mesure de chaque feuille."),
+    shiny::helpText("Les puits sont détectés automatiquement, sans les colonnes de température. Les temps Excel sont exprimés en minutes écoulées depuis la première mesure de chaque feuille."),
     shiny::actionButton(ns("pair"),"Importer OD + signal",class="btn-primary"),
     shiny::actionButton(ns("reset"),"Nouvelle analyse"),shiny::textOutput(ns("status")),
-    shiny::radioButtons(ns("preview_signal"),"Afficher dans le tableau",choices=c("OD600"="od","Signal mCh"="mch"),selected="od",inline=TRUE),shiny::tableOutput(ns("preview")))
+    shiny::radioButtons(ns("preview_signal"),"Afficher dans le tableau",choices=c("OD600"="od","Signal"="mch"),selected="od",inline=TRUE),shiny::tableOutput(ns("preview")))
 }
 web_import_server <- function(id) shiny::moduleServer(id,function(input,output,session) {
   data <- shiny::reactiveVal(NULL)
@@ -47,7 +47,7 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
     }
     shiny::validate(shiny::need(input$time %in% names(d),"Colonne temps absente de cette feuille."))
     if (input$time %in% names(d) && inherits(d[[input$time]],c("POSIXt","Date")))
-      d[[input$time]] <- as.numeric(difftime(d[[input$time]],d[[input$time]][1],units="hours"))
+      d[[input$time]] <- as.numeric(difftime(d[[input$time]],d[[input$time]][1],units="mins"))
     utils::head(d[c(input$time,names(d)[grepl("^[A-Za-z][0-9]+$",names(d))])],8)
   }, digits=3)
   shiny::observeEvent(input$pair,{
@@ -62,7 +62,7 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
         d<-if(excel) readxl::read_excel(f$datapath,sheet=sheet) else raw()
         if(!input$time %in% names(d)) stop(paste("Colonne temps absente :",sheet))
         if(inherits(d[[input$time]],c("POSIXt","Date")))
-          d[[input$time]]<-as.numeric(difftime(d[[input$time]],d[[input$time]][1],units="hours"))
+          d[[input$time]]<-as.numeric(difftime(d[[input$time]],d[[input$time]][1],units="mins"))
         wells<-names(d)[grepl("^[A-Za-z][0-9]+$",names(d))]
         web_prepare(d,input$time,wells,sheet)
       })

@@ -74,3 +74,10 @@ test_that("overview uses reversible dual axes without changing measurements", {
   d$value<-0
   expect_true(all(is.finite(ggplot2::ggplot_build(CuRveR:::web_overview_plot(d))$data[[2]]$y)))
 })
+
+test_that("language defaults to English and signal labels are generic", {
+  ui<-as.character(CuRveR:::modern_ui())
+  expect_match(ui,'id="language"')
+  expect_match(ui,'value="en" selected="selected"')
+  expect_false(grepl("Feuille signal \\(mCh\\)",ui))
+})

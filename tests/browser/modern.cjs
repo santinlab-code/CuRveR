@@ -10,14 +10,14 @@ await page.waitForTimeout(1500);await page.locator('#import-files').setInputFile
 await page.waitForFunction(()=>document.querySelector('#import-time')?.options.length>0);
 await page.waitForTimeout(1500);await page.locator('#import-pair').click();await page.waitForFunction(()=>document.querySelector('#import-status').innerText.includes('1 signal'));
 console.log('import:',await page.locator('#import-status').innerText());
-await page.getByRole('link',{name:'Conditions',exact:true}).click();
+await page.locator('.navbar a[data-value="Conditions"]').click();
 await page.evaluate(()=>{const s=document.querySelector('#conditions-reps').selectize;s.setValue(['A1','A2']);document.querySelector('#conditions-blanks').selectize.setValue(['B1'])});
 await page.locator('#conditions-save').click();await page.waitForTimeout(600);
 console.log('conditions:',await page.locator('#conditions-summary').innerText());
 await page.locator('#run').click();await page.waitForFunction(()=>document.querySelector('#status').innerText.includes('terminée'),null,{timeout:30000});
-await page.getByRole('link',{name:'Résultats',exact:true}).click();await page.waitForTimeout(1000);
+await page.locator('.navbar a[data-value="Résultats"]').click();await page.waitForTimeout(1000);
 console.log('status:',await page.locator('#status').innerText());console.log('errors',errors);const shinyErrors=await page.locator('.shiny-output-error').allTextContents();console.log('shiny errors',shinyErrors);if(shinyErrors.length)throw Error(shinyErrors.join('; '));
-await page.getByRole('link',{name:'Export',exact:true}).click();
+await page.locator('.navbar a[data-value="Export"]').click();
 const dl=page.waitForEvent('download');await page.locator('#csv').click();const file=await dl;console.log('download:',file.suggestedFilename());await file.saveAs(path.join(directory,'results.csv'));if(fs.readFileSync(path.join(directory,'results.csv'),'utf8').trim().split('\n').length!==99)throw Error('Expected 98 fitted rows');
 await page.screenshot({path:path.join(directory,'app.png'),fullPage:true});await b.close();if(errors.length)process.exitCode=1;
 })().catch(e=>{console.error(e);process.exit(1)});

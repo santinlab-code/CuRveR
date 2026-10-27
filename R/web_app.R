@@ -1,6 +1,6 @@
 modern_ui <- function() bslib::page_navbar(
-  title="CuRveR · Analyse scientifique",id="page",theme=bslib::bs_theme(version=5, bootswatch="flatly",primary="#137c8b",base_font="system-ui"),
-  header=shiny::tags$style(shiny::HTML("body{background:#f3f6f8}.bslib-card{border:0;box-shadow:0 2px 12px #1232}.navbar{border-bottom:3px solid #137c8b}.shiny-output-error-validation{color:#9c3c19}.form-control{border-radius:6px}table{font-variant-numeric:tabular-nums}")),
+  title=shiny::tagList(shiny::div(style="display:inline-block;margin-right:14px",shiny::tags$select(id="language",class="shiny-input-select form-select",`aria-label`="Language / Langue",shiny::tags$option(value="en",selected="selected","EN"),shiny::tags$option(value="fr","FR"))),"CuRveR"),id="page",theme=bslib::bs_theme(version=5, bootswatch="flatly",primary="#137c8b",base_font="system-ui"),
+  header=shiny::tagList(shiny::tags$script(src="curver/language.js"),shiny::tags$style(shiny::HTML("body{background:#f3f6f8}.bslib-card{border:0;box-shadow:0 2px 12px #1232}.navbar{border-bottom:3px solid #137c8b}.shiny-output-error-validation{color:#9c3c19}.form-control{border-radius:6px}table{font-variant-numeric:tabular-nums}"))),
   sidebar=bslib::sidebar(title="Votre analyse",width=290,
     shiny::p("Import → Conditions → Fenêtres → Résultats"),
     shiny::textOutput("counts"),shiny::hr(),
@@ -8,7 +8,7 @@ modern_ui <- function() bslib::page_navbar(
     shiny::numericInput("seed","Graine reproductible",42,min=0,max=.Machine$integer.max,step=1),
     shiny::p("Modèle : Richard · Optimisation : évolution différentielle"),
     shiny::actionButton("run","Lancer l’analyse",class="btn-primary"),shiny::actionButton("cancel","Annuler"),
-    shiny::textOutput("status"),shiny::p("Le temps conserve l’unité du fichier. Les blancs sont soustraits selon le calcul historique.")),
+    shiny::textOutput("status"),shiny::p("Excel times are converted to minutes. Blanks are subtracted using the historical calculation.")),
   bslib::nav_panel("Import",bslib::card(bslib::card_header("Fichiers et préparation"),web_import_ui("import"))),
   bslib::nav_panel("Aperçu",bslib::card(shiny::plotOutput("overview",height="600px"),shiny::downloadButton("overview_export","Exporter l’aperçu PDF"))),
   bslib::nav_panel("Conditions",bslib::card(bslib::card_header("Réplicats et blancs"),web_conditions_ui("conditions"))),
@@ -46,7 +46,7 @@ modern_server <- function(input,output,session) {
   shiny::observeEvent(list(data(),conditions(),windows(),input$loss,input$seed),{
     revision(shiny::isolate(revision())+1L)
   },ignoreNULL=FALSE)
-  output$counts <- shiny::renderText({d<-data();if(is.null(d))"Aucune donnée" else paste(length(unique(d$signal)),"signaux ·",length(unique(d$well)),"puits ·",length(conditions()),"conditions")})
+  output$counts <- shiny::renderText({d<-data();if(is.null(d))"Aucune donnée" else paste(length(unique(d$signal)),if(identical(input$language,"fr")) "signaux ·" else "signals ·",length(unique(d$well)),if(identical(input$language,"fr")) "puits ·" else "wells ·",length(conditions()),"conditions")})
   output$status <- shiny::renderText({paste(status(),if(!is.null(result()) && revision()!=completed())"Paramètres modifiés : relancez l’analyse avant export." else "")})
   shiny::observeEvent(input$run,{
     if(!is.null(job())){shiny::showNotification("Une analyse est déjà en cours.");return()}
@@ -72,8 +72,13 @@ modern_server <- function(input,output,session) {
   })
   shiny::observeEvent(input$cancel,{if(!is.null(job())){job()$kill();job(NULL);status("Analyse annulée.")}})
   session$onSessionEnded(function(){p<-shiny::isolate(job());if(!is.null(p))p$kill()})
-  overview <- shiny::reactive({shiny::req(data());web_overview_plot(data())})
-  output$overview <- shiny::renderPlot(overview())
+  overview <- shiny::reactive({shiny::req(data());web_overview_plot(data(),input$language %||% "en")})
+  output$overview <- shiny::renderPlot({
+    shiny::req(data())
+    tryCatch(print(overview()), error=function(e) {
+      shiny::validate(shiny::need(FALSE,paste(if(identical(input$language,"fr")) "Impossible de tracer l’aperçu :" else "Cannot render overview:",conditionMessage(e))))
+    })
+  },res=96)
   plot <- shiny::reactive({shiny::req(result(),input$signal,input$conditions)
     p<-web_plot(result(),input$signal,input$conditions,input$plot_type,input$features,input$metric)
     if(isTRUE(input$use_zoom) && !is.null(input$zoom) && input$plot_type!="metrics")p<-p+ggplot2::coord_cartesian(xlim=c(input$zoom$xmin,input$zoom$xmax))
