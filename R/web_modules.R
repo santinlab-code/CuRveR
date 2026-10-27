@@ -80,7 +80,7 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
 
 web_conditions_ui <- function(id) {
   ns <- shiny::NS(id)
-  shiny::tagList(shiny::selectInput(ns("selected"),"Condition",NULL),shiny::textInput(ns("name"),"Nom","Témoin"),
+  shiny::tagList(shiny::selectInput(ns("selected"),"Condition",NULL),shiny::textInput(ns("name"),"Nom",""),
     shiny::selectizeInput(ns("reps"),"Réplicats",NULL,multiple=TRUE),shiny::selectizeInput(ns("blanks"),"Blancs",NULL,multiple=TRUE),
     shiny::actionButton(ns("save"),"Enregistrer / renommer",class="btn-primary"),shiny::actionButton(ns("new"),"Nouvelle condition"),
     shiny::actionButton(ns("delete"),"Supprimer"),shiny::fileInput(ns("yaml"),"Importer une configuration YAML",accept=c(".yml",".yaml")),
@@ -88,7 +88,9 @@ web_conditions_ui <- function(id) {
 }
 web_conditions_server <- function(id,data) shiny::moduleServer(id,function(input,output,session){
   conditions <- shiny::reactiveVal(list())
-  shiny::observeEvent(data(),{ conditions(list()); wells<-unique(data()$well)
+  shiny::observeEvent(data(),{ wells<-unique(data()$well); conditions(web_triplet_conditions(wells))
+    shiny::updateTextInput(session,"name",value="")
+    shiny::updateSelectInput(session,"selected",selected="")
     shiny::updateSelectizeInput(session,"reps",choices=wells);shiny::updateSelectizeInput(session,"blanks",choices=wells)
   },ignoreNULL=FALSE)
   shiny::observeEvent(conditions(),shiny::updateSelectInput(session,"selected",choices=c("Nouvelle"="",stats::setNames(names(conditions()),names(conditions())))))

@@ -106,3 +106,14 @@ test_that("each well independently aligns both axis endpoints", {
   expect_s3_class(CuRveR:::web_overview_grid(d),"gTree")
   expect_equal(d,original)
 })
+
+test_that("technical triplets follow physical rows and columns", {
+  groups<-CuRveR:::web_triplet_conditions(c(paste0("A",12:1),"B1","B3","B4"))
+  expect_equal(groups[["A1-A3"]]$replicates,paste0("A",1:3))
+  expect_equal(groups[["A10-A12"]]$replicates,paste0("A",10:12))
+  expect_equal(groups[["B1-B3"]]$replicates,c("B1","B3"))
+  expect_equal(groups[["B4"]]$replicates,"B4")
+  expect_true(all(vapply(groups,function(g)length(g$blanks)==0,logical(1))))
+  expect_equal(CuRveR:::web_triplet_conditions(NULL),list())
+  expect_false(grepl('value="Témoin"',as.character(CuRveR:::web_conditions_ui('c'))))
+})

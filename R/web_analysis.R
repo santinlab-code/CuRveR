@@ -166,3 +166,18 @@ web_overview_grid <- function(data, language="en", columns=3L) {
   do.call(grid::grobTree,grobs)
 }
 web_overview_height <- function(data) max(300L,ceiling(length(unique(data$well))/3)*280L)
+
+# Physical adjacent triplets, never crossing rows or a three-column boundary.
+# Missing wells remain in partial groups; no measurements or blanks invented.
+web_triplet_conditions <- function(wells) {
+  wells <- gtools::mixedsort(unique(wells))
+  if(!length(wells)) return(list())
+  valid <- grepl("^[A-Za-z]+[1-9][0-9]*$",wells)
+  keys <- wells
+  row <- sub("[0-9]+$","",wells[valid])
+  column <- as.integer(sub("^[A-Za-z]+","",wells[valid]))
+  keys[valid] <- paste(row,(column-1L)%/%3L,sep=":")
+  groups <- lapply(unique(keys),function(key) wells[keys==key])
+  names(groups) <- vapply(groups,function(w) if(length(w)==1) w else paste(w[1],tail(w,1),sep="-"),"")
+  lapply(groups,function(w) list(replicates=w,blanks=character()))
+}

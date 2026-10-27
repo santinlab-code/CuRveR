@@ -61,3 +61,7 @@ L’OD (noir, gauche) et le signal (rouge, droite) utilisent une transformation 
 ## Interface simplifiée
 
 La couleur principale est RGB(0, 40, 75), soit #00284B. La barre latérale ne contient plus de réglages de calcul ni de bouton de lancement. L’analyse se lance depuis Résultats, avec LAD et une graine reproductible de 42 ; ces valeurs sont conservées dans l’export de configuration. Les autres fonctions de coût restent disponibles dans le moteur R et l’interface historique.
+
+## Conditions techniques par défaut
+
+Après import, les puits sont pré-affectés par triplets de colonnes au sein de chaque ligne : A1–A3, A4–A6, A7–A9, A10–A12, puis B1–B3, etc. Les groupes restent modifiables et renommables. Les puits manquants créent un groupe partiel sans décaler les triplets suivants. Aucun blanc biologique n’est deviné ; il faut vérifier les affectations avant analyse. Le champ de nom d’une nouvelle condition est vide.
