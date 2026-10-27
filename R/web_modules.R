@@ -2,13 +2,9 @@ web_import_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(shiny::fileInput(ns("files"),"Importer des fichiers",multiple=TRUE,accept=c(".csv",".tsv",".txt",".xls",".xlsx")),
     shiny::selectInput(ns("file"),"Fichier à analyser",choices=NULL),shiny::selectInput(ns("od"),"Feuille OD",NULL), shiny::selectInput(ns("mch"),"Feuille signal (mCh)",NULL),
-    shiny::actionButton(ns("pair"),"Importer OD + signal",class="btn-primary"),shiny::hr(),
-    shiny::selectInput(ns("sheet"),"Feuille de mesures (OD ou signal)",choices=NULL),
-    shiny::textInput(ns("signal"),"Nom du signal (rempli depuis la feuille)","OD600"),
     shiny::selectInput(ns("time"),"Colonne temps",choices=NULL),
-    shiny::selectizeInput(ns("wells"),"Puits détectés automatiquement",choices=NULL,multiple=TRUE),
-    shiny::helpText("Choisissez OD600, importez-la, puis choisissez mCh signal et importez-la. Les temps Excel sont convertis en heures écoulées depuis la première mesure de chaque feuille ; les colonnes de température sont exclues."),
-    shiny::actionButton(ns("add"),"Importer cette feuille",class="btn-primary"),
+    shiny::helpText("Les puits sont détectés automatiquement, sans les colonnes de température. Les temps Excel sont exprimés en heures écoulées depuis la première mesure de chaque feuille."),
+    shiny::actionButton(ns("pair"),"Importer OD + signal",class="btn-primary"),
     shiny::actionButton(ns("reset"),"Nouvelle analyse"),shiny::textOutput(ns("status")),shiny::tableOutput(ns("preview")))
 }
 web_import_server <- function(id) shiny::moduleServer(id,function(input,output,session) {
@@ -22,7 +18,6 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
     sheets <- tryCatch(if (tolower(tools::file_ext(f$name)) %in% c("xls","xlsx")) readxl::excel_sheets(f$datapath) else character(),error=function(e) character())
     shiny::updateSelectInput(session,"od",choices=sheets,selected=if("OD600" %in% sheets) "OD600" else sheets[1])
     shiny::updateSelectInput(session,"mch",choices=sheets,selected=if("mCh signal" %in% sheets) "mCh signal" else tail(sheets,1))
-    shiny::updateSelectInput(session,"sheet",choices=sheets,selected=if("OD600" %in% sheets) "OD600" else sheets[1])
   })
   raw <- shiny::reactive({
     shiny::req(input$files,input$file)
@@ -31,7 +26,7 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
     shiny::validate(shiny::need(ext %in% c("csv","tsv","txt","xls","xlsx"),"Format non pris en charge."))
     tryCatch({
       d <- if (ext %in% c("xls","xlsx")) {
-        shiny::req(input$sheet); readxl::read_excel(f$datapath,sheet=input$sheet)
+        shiny::req(input$od); readxl::read_excel(f$datapath,sheet=input$od)
       } else if (ext=="csv") readr::read_csv(f$datapath,show_col_types=FALSE) else
         readr::read_delim(f$datapath,delim=if(ext=="tsv") "\t" else NULL,show_col_types=FALSE)
       shiny::validate(shiny::need(nrow(d)>0 && ncol(d)>1,"Fichier vide ou séparateur incorrect.")); d
@@ -39,35 +34,24 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
   })
   shiny::observeEvent(raw(),{
     columns <- names(raw())
-    if(nzchar(input$sheet)) shiny::updateTextInput(session,"signal",value=input$sheet)
     shiny::updateSelectInput(session,"time",choices=columns,selected=columns[1])
-    shiny::updateSelectizeInput(session,"wells",choices=columns,selected=columns[grepl("^[A-Za-z][0-9]+$",columns)])
   })
   output$preview <- shiny::renderTable({
     d <- raw(); shiny::req(input$time)
     if (input$time %in% names(d) && inherits(d[[input$time]],c("POSIXt","Date")))
       d[[input$time]] <- as.numeric(difftime(d[[input$time]],d[[input$time]][1],units="hours"))
-    utils::head(d[c(input$time,intersect(input$wells,names(d)))],8)
+    utils::head(d[c(input$time,names(d)[grepl("^[A-Za-z][0-9]+$",names(d))])],8)
   }, digits=3)
-  shiny::observeEvent(input$add,{
-    tryCatch({
-      d <- raw()
-      if (inherits(d[[input$time]], c("POSIXt", "Date"))) {
-        d[[input$time]] <- as.numeric(difftime(d[[input$time]], d[[input$time]][1], units="hours"))
-      }
-      d <- web_prepare(d,input$time,input$wells,input$signal)
-      old <- data()
-      if (!is.null(old) && input$signal %in% old$signal) stop("Ce signal existe déjà. Utilisez un autre nom.")
-      data(dplyr::bind_rows(old,d))
-    },error=function(e) shiny::showNotification(conditionMessage(e),type="error",duration=NULL))
-  })
   shiny::observeEvent(input$pair,{
     tryCatch({
-      shiny::req(input$files,input$file,input$od,input$mch,input$time)
-      if(input$od==input$mch) stop("Choisissez deux feuilles distinctes.")
+      shiny::req(input$files,input$file,input$time)
       f<-input$files[as.integer(input$file),]
-      signals<-lapply(c(input$od,input$mch),function(sheet){
-        d<-readxl::read_excel(f$datapath,sheet=sheet)
+      excel<-tolower(tools::file_ext(f$name)) %in% c("xls","xlsx")
+      if(excel) shiny::req(input$od,input$mch)
+      if(excel && input$od==input$mch) stop("Choisissez deux feuilles distinctes.")
+      f<-input$files[as.integer(input$file),]
+      signals<-lapply(if(excel) c(input$od,input$mch) else f$name,function(sheet){
+        d<-if(excel) readxl::read_excel(f$datapath,sheet=sheet) else raw()
         if(!input$time %in% names(d)) stop(paste("Colonne temps absente :",sheet))
         if(inherits(d[[input$time]],c("POSIXt","Date")))
           d[[input$time]]<-as.numeric(difftime(d[[input$time]],d[[input$time]][1],units="hours"))

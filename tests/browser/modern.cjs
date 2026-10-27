@@ -8,7 +8,7 @@ let rows=['Time,A1,A2,B1'];for(let i=0;i<49;i++){let t=i/2,y=.1+.9/(1+Math.exp(-
 await page.goto('http://127.0.0.1:3839');await page.waitForFunction(()=>window.Shiny?.shinyapp?.$socket?.readyState===1);
 await page.waitForTimeout(1500);await page.locator('#import-files').setInputFiles(source);
 await page.waitForFunction(()=>document.querySelector('#import-time')?.options.length>0);
-await page.waitForTimeout(1500);await page.locator('#import-add').click();await page.waitForFunction(()=>document.querySelector('#import-status').innerText.includes('1 signal'));
+await page.waitForTimeout(1500);await page.locator('#import-pair').click();await page.waitForFunction(()=>document.querySelector('#import-status').innerText.includes('1 signal'));
 console.log('import:',await page.locator('#import-status').innerText());
 await page.getByRole('link',{name:'Conditions',exact:true}).click();
 await page.evaluate(()=>{const s=document.querySelector('#conditions-reps').selectize;s.setValue(['A1','A2']);document.querySelector('#conditions-blanks').selectize.setValue(['B1'])});
