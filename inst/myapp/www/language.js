@@ -5,6 +5,7 @@ translations["Aucun"]="None";
 translations["Soustrait à toutes les conditions, séparément pour chaque signal. Le triplet blanc est exclu des ajustements."]="Subtracted from every condition, separately for each signal. The blank triplet is excluded from fitting.";
 translations["Groupe blanc commun"]="Shared blank group";
 translations["Renommez le groupe et ajustez ses puits, puis enregistrez. Un puits ajouté est déplacé depuis son ancien groupe."]="Rename the group and adjust its wells, then save. Added wells are moved from their previous group.";
+translations["La sélection sur le graphique est enregistrée automatiquement. Pour des bornes saisies au clavier, cliquez sur Appliquer."]="Graph selections are saved automatically. For limits entered by keyboard, click Apply.";
 (()=>{
 let language='en';
 const original=new WeakMap();

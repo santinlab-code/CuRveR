@@ -17,6 +17,17 @@ const pdfBox=await page.locator('#overview_export').boundingBox();
 if(pdfBox.y<graphBox.y+graphBox.height)throw Error('PDF button overlaps overview');
 await page.locator('.navbar a[data-value="Fenêtres"]').click();
 await page.locator('#windows-plot img').waitFor();
+await page.locator('#windows-plot').scrollIntoViewIfNeeded();
+const brushBox=await page.locator('#windows-plot').boundingBox();
+await page.mouse.move(brushBox.x+brushBox.width*.25,brushBox.y+250);
+await page.mouse.down();await page.mouse.move(brushBox.x+brushBox.width*.65,brushBox.y+250,{steps:12});await page.mouse.up();
+await page.waitForFunction(()=>Number(document.querySelector('#windows-left').value)>0);
+const savedBrushLeft=await page.locator('#windows-left').inputValue();
+await page.evaluate(()=>document.querySelector('#windows-well').selectize.setValue('A2'));
+await page.waitForFunction(()=>document.querySelector('#windows-left').value==='0');
+await page.evaluate(()=>document.querySelector('#windows-well').selectize.setValue('A1'));
+await page.waitForFunction(x=>document.querySelector('#windows-left').value===x,savedBrushLeft);
+
 await page.locator('#windows-left').fill('2');await page.locator('#windows-right').fill('20');await page.locator('#windows-apply').click();
 await page.waitForTimeout(300);
 await page.evaluate(()=>document.querySelector('#windows-well').selectize.setValue('A2'));

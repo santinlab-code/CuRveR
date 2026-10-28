@@ -160,7 +160,8 @@ web_windows_ui <- function(id) {
       shiny::selectInput(ns("signal"),"Signal",NULL),shiny::selectInput(ns("well"),"Puits",NULL),
       shiny::checkboxInput(ns("all"),"Appliquer à tous les puits et signaux",FALSE),
       shiny::numericInput(ns("left"),"Début",0),shiny::numericInput(ns("right"),"Fin",24),
-      shiny::actionButton(ns("apply"),"Appliquer la fenêtre")),
+      shiny::actionButton(ns("apply"),"Appliquer la fenêtre"),
+      shiny::helpText("La sélection sur le graphique est enregistrée automatiquement. Pour des bornes saisies au clavier, cliquez sur Appliquer.")),
     shiny::div(style="flex:3 1 400px;min-width:280px;height:500px;min-height:500px;",
       shiny::plotOutput(ns("plot"),height="500px",fill=FALSE,
         brush=shiny::brushOpts(ns("brush"),direction="x",resetOnNew=TRUE))))
@@ -182,8 +183,11 @@ web_windows_server <- function(id,data,conditions=NULL) shiny::moduleServer(id,f
   })
   shiny::observeEvent(input$brush,{
     shiny::req(input$signal,input$well,is.finite(input$brush$xmin),is.finite(input$brush$xmax))
-    shiny::updateNumericInput(session,"left",value=input$brush$xmin)
-    shiny::updateNumericInput(session,"right",value=input$brush$xmax)
+    shiny::req(windows(),input$brush$xmin<input$brush$xmax)
+    w<-windows()
+    i<-if(isTRUE(input$all)) rep(TRUE,nrow(w)) else w$signal==input$signal & w$well==input$well
+    w$left[i]<-input$brush$xmin;w$right[i]<-input$brush$xmax
+    windows(w)
   })
   shiny::observeEvent(input$apply,{
     shiny::req(windows(),input$signal,input$well,is.finite(input$left),is.finite(input$right))
@@ -195,7 +199,11 @@ web_windows_server <- function(id,data,conditions=NULL) shiny::moduleServer(id,f
     d<-data()
     if(!is.null(conditions)) d<-web_blank_correct(d,attr(conditions(),"global_blank"),windows())
     d<-d[d$signal==input$signal & d$well==input$well,]
-    ggplot2::ggplot(d,ggplot2::aes(Time,value))+ggplot2::geom_line(color="#00284B")+ggplot2::geom_point()+ggplot2::geom_vline(xintercept=c(input$left,input$right),linetype=2)+ggplot2::theme_minimal()
+    saved<-windows();saved<-saved[saved$signal==input$signal & saved$well==input$well,]
+    ggplot2::ggplot(d,ggplot2::aes(Time,value))+
+      ggplot2::annotate("rect",xmin=saved$left,xmax=saved$right,ymin=-Inf,ymax=Inf,fill="#00284B",alpha=.08)+
+      ggplot2::geom_line(color="#00284B")+ggplot2::geom_point()+
+      ggplot2::geom_vline(xintercept=c(saved$left,saved$right),linetype=2)+ggplot2::theme_minimal()
   },height=500,res=96,execOnResize=TRUE,width=function(){
     width<-session$clientData$output_plot_width
     if(is.null(width) || !is.finite(width) || width<100) 800 else width

@@ -176,3 +176,19 @@ test_that("time windows stay local unless global application is explicitly check
     expect_equal(sum(windows()$left==4),1)
   })
 })
+
+test_that("brushed windows persist immediately without Apply", {
+  d<-expand.grid(Time=0:10,well=c("A1","A2"),signal=c("OD","Signal"),stringsAsFactors=FALSE);d$value<-d$Time
+  shiny::testServer(CuRveR:::web_windows_server,args=list(data=shiny::reactive(d)),{
+    session$setInputs(signal="OD",well="A1",all=FALSE,brush=list(xmin=2,xmax=8))
+    expect_equal(windows()$left[windows()$signal=="OD" & windows()$well=="A1"],2)
+    session$setInputs(well="A2",brush=NULL)
+    expect_equal(windows()$left[windows()$signal=="OD" & windows()$well=="A2"],0)
+    session$setInputs(brush=list(xmin=3,xmax=7))
+    session$setInputs(well="A1",brush=NULL)
+    expect_equal(windows()$left[windows()$signal=="OD" & windows()$well=="A1"],2)
+    expect_equal(windows()$left[windows()$signal=="OD" & windows()$well=="A2"],3)
+    session$setInputs(all=TRUE,brush=list(xmin=1,xmax=9))
+    expect_true(all(windows()$left==1));expect_true(all(windows()$right==9))
+  })
+})
