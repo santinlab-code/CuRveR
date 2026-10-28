@@ -290,3 +290,31 @@ web_fit_richard <- function(x,y,loss=least_absolute_deviation) {
   model$estimated<-c(p_max=baseline+value_scale*unname(best[1]),p_min=baseline+value_scale*unname(best[2]),r_max=value_scale/time_scale*unname(best[3]),s=origin+time_scale*unname(best[4]))
   model
 }
+
+web_summary <- function(result) dplyr::left_join(result$parameters,result$performance,by=c("signal","condition"))
+
+web_export_table <- function(data,file,format,title) {
+  if(format=="csv")return(readr::write_csv(data,file))
+  if(format=="xlsx")return(openxlsx::write.xlsx(data,file,sheetName="Results",overwrite=TRUE))
+  if(format!="pdf")stop("Unsupported table format.")
+  # Page rows and columns without truncating either measurements or long names.
+  text<-as.data.frame(lapply(data,function(x)ifelse(is.na(x),"NA",as.character(x))),stringsAsFactors=FALSE)
+  blocks<-split(seq_along(text),ceiling(seq_along(text)/6))
+  widths<-vapply(seq_along(text),function(i)max(nchar(c(names(text)[i],text[[i]])),1),numeric(1))
+  page_width<-max(11.7,max(vapply(blocks,function(i)sum(widths[i]+2),numeric(1)))*.075+1)
+  device<-if(capabilities("cairo")) grDevices::cairo_pdf else grDevices::pdf
+  device(file,width=page_width,height=8.3,onefile=TRUE)
+  on.exit(grDevices::dev.off())
+  rows<-split(seq_len(nrow(text)),ceiling(seq_len(nrow(text))/38))
+  if(!length(rows))rows<-list(integer())
+  pages<-length(blocks)*length(rows);page<-0L
+  for(cols in blocks)for(indices in rows){
+    page<-page+1L;grid::grid.newpage()
+    grid::grid.text(title,x=.03,y=.96,just=c("left","top"),gp=grid::gpar(fontsize=12,fontface="bold"))
+    grid::grid.text(paste("Page",page,"/",pages),x=.97,y=.96,just=c("right","top"),gp=grid::gpar(fontsize=9))
+    line<-function(values)paste(vapply(seq_along(cols),function(k)sprintf(paste0("%-",widths[cols[k]]+2,"s"),values[k]),""),collapse="")
+    lines<-c(line(names(text)[cols]),vapply(indices,function(i)line(vapply(text[cols],function(x)x[i],"")),""))
+    grid::grid.text(paste(lines,collapse="\n"),x=.03,y=.89,just=c("left","top"),gp=grid::gpar(fontfamily="mono",fontsize=8.5,lineheight=1.25))
+  }
+  invisible(file)
+}

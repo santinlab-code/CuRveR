@@ -73,7 +73,21 @@ await page.locator('details').filter({has:page.locator('#data')}).locator('summa
 if(!await page.locator('#parameters table').count())throw Error('Summary table missing');
 if(!await page.locator('#data table').count())throw Error('Complete data missing');
 console.log('status:',await page.locator('#status').innerText());console.log('errors',errors);const shinyErrors=await page.locator('.shiny-output-error').allTextContents();console.log('shiny errors',shinyErrors);if(shinyErrors.length)throw Error(shinyErrors.join('; '));
+const imageDownload=page.waitForEvent('download');await page.locator('#figure').click();const image=await imageDownload;await image.saveAs(path.join(directory,'current.png'));
+if(fs.readFileSync(path.join(directory,'current.png')).subarray(1,4).toString()!=='PNG')throw Error('Invalid plot image');
 await page.locator('.navbar a[data-value="Export"]').click();
 const dl=page.waitForEvent('download');await page.locator('#csv').click();const file=await dl;console.log('download:',file.suggestedFilename());await file.saveAs(path.join(directory,'results.csv'));if(fs.readFileSync(path.join(directory,'results.csv'),'utf8').trim().split('\n').length!==99)throw Error('Expected 98 fitted rows');
+for(const format of ['xlsx','pdf'])for(const table of ['params','csv']){
+ await page.evaluate(f=>document.querySelector('#table_format').selectize.setValue(f),format);await page.waitForTimeout(300);
+ const pending=page.waitForEvent('download');await page.locator('#'+table).click();const downloaded=await pending;
+ const target=path.join(directory,table+'.'+format);await downloaded.saveAs(target);const bytes=fs.readFileSync(target);
+ if(format==='xlsx'&&bytes.subarray(0,2).toString()!=='PK')throw Error('Invalid XLSX');
+ if(format==='pdf'&&bytes.subarray(0,4).toString()!=='%PDF')throw Error('Invalid PDF');
+ console.log('export',downloaded.suggestedFilename());
+}
+if(await page.locator('#quality,#settings').count())throw Error('Obsolete exports');
+await page.locator('.navbar a[data-value="Aide"]').click();
+if(await page.locator('#section_help section').count()!==6)throw Error('Incomplete help');
+if(!await page.locator('.navbar-brand').innerText().then(t=>t.includes('CuRveR 2.0')))throw Error('Missing 2.0 branding');
 await page.screenshot({path:path.join(directory,'app.png'),fullPage:true});await b.close();if(errors.length)process.exitCode=1;
 })().catch(e=>{console.error(e);process.exit(1)});

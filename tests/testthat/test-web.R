@@ -242,3 +242,15 @@ test_that("positive result view preserves negative measurements and fit values",
   expect_lt(signed$layout$panel_params[[1]]$y.range[1],0)
   expect_match(p$labels$x,"in min",fixed=TRUE)
 })
+
+test_that("result tables export complete CSV, XLSX and paginated PDF files", {
+  d<-data.frame(condition=paste0("C",1:85),value=(1:85)/10,third=1:85,fourth=1:85,fifth=1:85,sixth=1:85,seventh=paste0("last_marker_",1:85))
+  for(format in c("csv","xlsx","pdf")){
+    file<-tempfile(fileext=paste0(".",format));on.exit(unlink(file),add=TRUE)
+    CuRveR:::web_export_table(d,file,format,"Complete data")
+    expect_true(file.info(file)$size>0)
+    if(format=="csv")expect_equal(as.data.frame(readr::read_csv(file,show_col_types=FALSE)),d)
+    if(format=="xlsx")expect_equal(as.data.frame(readxl::read_xlsx(file)),d)
+    if(format=="pdf")expect_equal(rawToChar(readBin(file,"raw",4)),"%PDF")
+  }
+})

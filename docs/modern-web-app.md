@@ -29,7 +29,7 @@ Les blancs sont moyennés dans leurs fenêtres par condition et signal, puis sou
 
 Une erreur ou annulation conserve les anciens résultats sans les présenter comme ceux du calcul interrompu.
 
-L’exécution via `callr` utilise un processus R séparé, arrêté à l’annulation ou à la fermeture de session. L’indicateur affiche un état de calcul, pas un pourcentage artificiel. L’export YAML contient les conditions, fenêtres, coût, graine, version R et version du package. Ce fichier est un compte rendu ; seul le YAML des conditions dispose actuellement d’un import dédié.
+L’exécution via `callr` utilise un processus R séparé, arrêté à l’annulation ou à la fermeture de session. L’indicateur affiche un état de calcul, pas un pourcentage artificiel. L’export de configuration des groupes reste disponible dans Conditions. L’onglet Export est réservé aux tableaux de résultats ; il ne propose plus de compte rendu YAML.
 
 ## Tests
 
@@ -101,3 +101,11 @@ Les conditions sont des cases à cocher disposées en lignes. Les tableaux réca
 Après analyse, l’OD choisie à l’import est sélectionnée en premier. Les axes temporels affichent « Time (in min) » ; les dates/heures Excel sont converties en minutes et les colonnes temporelles numériques doivent donc être fournies en minutes. Les paramètres de vitesse restent exprimés par unité temporelle des données.
 
 Les courbes utilisent par défaut un cadrage Y à partir de zéro, sans modifier les valeurs. Les valeurs corrigées négatives restent dans l’ajustement, les tableaux et les exports ; un message indique combien de mesures sont hors du cadrage positif. L’option « Show negative corrected values » permet de les revoir. Une mesure inférieure à la moyenne du groupe blanc donne un signal corrigé négatif : vérifier le blanc plutôt que rectifier artificiellement les données. Les graphiques de paramètres gardent leurs valeurs signées, notamment r_max pour une décroissance. Les info-bulles des paramètres ont été retirées.
+
+## CuRveR 2.0 : images, tableaux et aide
+
+Le bandeau indique CuRveR 2.0. Dans Results, le petit bouton Save plot sous la figure enregistre exactement la vue courante (signal, conditions, options et zoom), avec un choix PNG/PDF/SVG/JPEG/TIFF/EPS/PS/BMP. Dimensions et résolution se règlent dans un volet facultatif Image options.
+
+Export contient seulement Summarized values and fit quality et Complete data, avec les mêmes noms que dans Results, en CSV, XLSX (openxlsx) ou PDF. Le tableau récapitulatif inclut les indicateurs de qualité ; il n’y a plus d’export Quality séparé ni de YAML dans cet onglet. Les exports comprennent toutes les lignes, indépendamment de la page affichée. Les PDF paginent lignes et colonnes sans troncature des cellules.
+
+Help décrit le rôle et le fonctionnement d’Import, Overview, Conditions, Time windows, Results et Export en EN/FR. Il renvoie à cette documentation GitHub, dont la partie utilisateur sera enrichie ultérieurement avec le propriétaire du projet.
