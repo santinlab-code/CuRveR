@@ -26,7 +26,7 @@ test_that("adapter preserves grouped historical blank correction and fitting", {
     old<-d[d$well!="B1",];old$value<-old$value-mean(d$value[d$well=="B1"]);old$condition<-"Control"
     set.seed(42)
     fit<-CuRveR::fit_data(old,c(signal,condition),value,Time,loss_fun=fun,.id=well)
-    new<-CuRveR:::web_analyze(d,cond,windows,loss,42L)
+    new<-CuRveR:::web_analyze(d,cond,windows,loss,42L,engine="legacy")
     expect_equal(unlist(new$parameters[1,c("p_max","p_min","r_max","s")]),fit$model[[1]]$estimated,tolerance=1e-10)
     expect_equal(new$data$value,old$value)
     expect_equal(new$data$fit,fit$model[[1]]$predict(new$data$Time),tolerance=1e-10)
@@ -213,4 +213,19 @@ test_that("complete result data are accessible beyond the old 200-row limit", {
   expect_equal(nrow(CuRveR:::web_data_page(d,11,50)),37)
   expect_equal(CuRveR:::web_data_page(d,999,50),pages[[11]])
   expect_equal(CuRveR:::web_data_page(d,NA,NA),pages[[1]])
+})
+
+test_that("scaled Richard fitting recovers smooth known curves independent of units", {
+  x<-rep(seq(0,24,length.out=49),3)
+  for(direction in c(-1,1)) {
+    y<-.1+.9/(1+exp(-direction*.5*(x-12)))
+    set.seed(42);fit<-CuRveR:::web_fit_richard(x,y,CuRveR::least_absolute_deviation)
+    expect_lt(mean(abs(fit$predict()-y)),.005)
+    expect_equal(sign(fit$estimated['r_max']),direction,ignore_attr=TRUE)
+    set.seed(42);minutes<-CuRveR:::web_fit_richard(x*60,y,CuRveR::least_absolute_deviation)
+    expect_equal(minutes$predict(),fit$predict(),tolerance=.005)
+    expect_equal(unname(minutes$estimated['r_max']*60),unname(fit$estimated['r_max']),tolerance=.01)
+    set.seed(42);large<-CuRveR:::web_fit_richard(x,y*10000,CuRveR::least_absolute_deviation)
+    expect_equal(large$predict()/10000,fit$predict(),tolerance=.005)
+  }
 })

@@ -64,10 +64,12 @@ await page.locator('#run').click();await page.waitForFunction(()=>/terminée|com
 await page.locator('.navbar a[data-value="Résultats"]').click();await page.waitForTimeout(1000);
 await page.locator('#result_plot img').waitFor();
 if((await page.locator('#result_plot').boundingBox()).height<500)throw Error('Result plot compressed');
-if(await page.locator('#conditions input[type=checkbox]').count())throw Error('Conditions still vertical checkboxes');
+if(!await page.locator('#conditions input[type=checkbox]').count())throw Error('Condition checkboxes missing');
 await page.locator('input[name="plot_type"][value="metrics"]').check();await page.waitForTimeout(600);
 await page.locator('#result_plot img').waitFor();
 await page.locator('input[name="plot_type"][value="curves"]').check();await page.waitForTimeout(600);
+await page.locator('details').filter({has:page.locator('#parameters')}).locator('summary').click();
+await page.locator('details').filter({has:page.locator('#data')}).locator('summary').click();
 if(!await page.locator('#parameters table').count())throw Error('Summary table missing');
 if(!await page.locator('#data table').count())throw Error('Complete data missing');
 console.log('status:',await page.locator('#status').innerText());console.log('errors',errors);const shinyErrors=await page.locator('.shiny-output-error').allTextContents();console.log('shiny errors',shinyErrors);if(shinyErrors.length)throw Error(shinyErrors.join('; '));

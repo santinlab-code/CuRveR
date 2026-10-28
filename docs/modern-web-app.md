@@ -85,3 +85,13 @@ La sélection graphique de Time Windows est enregistrée immédiatement dans la 
 Le panneau affiche explicitement le modèle de Richard à quatre paramètres, l’évolution différentielle et LAD ; les autres modèles historiques incomplets ne sont pas proposés comme opérationnels. Le signal et la vue (courbes, comparaison des paramètres ou annotations) sont côte à côte. Le menu des conditions est une multisélection compacte. Les options de tracé sont dépliables et le graphique conserve une hauteur de 550 px.
 
 Sous le graphique, la table récapitulative regroupe les paramètres et les indicateurs de qualité par signal/condition. Les données complètes sont parcourables par pages de 50, 100 ou 200 lignes, sans l’ancienne limite des 200 premières lignes. Les tables couvrent l’ensemble des résultats ; le choix du signal et des conditions filtre la figure. L’export CSV conserve toutes les lignes.
+
+## Correction de l’ajustement (moteur scaled)
+
+L’équation Richard historique à quatre paramètres est conservée. Son initialisation historique estimait toutefois les dérivées en multipliant par le pas temporel et regroupait les observations selon leur valeur plutôt que leur temps. Le passage des heures aux minutes pouvait donc rendre les bornes de vitesse très grandes et favoriser des sigmoïdes presque discontinues.
+
+Le nouveau moteur ajuste temps et amplitude normalisés, calcule des bornes de pente à partir des médianes aux temps observés et conserve l’évolution différentielle avec le coût choisi (LAD dans l’interface). Un raffinement borné L-BFGS-B est retenu seulement s’il améliore ce même objectif. Les paramètres sont ensuite reconvertis dans les unités des données : p_max/p_min en unités du signal, r_max en unités du signal par unité de temps et s dans l’unité temporelle. Les observations ne sont pas lissées ou modifiées.
+
+Les résultats numériques changent volontairement par rapport au moteur défectueux ; le mode interne `web_analyze(..., engine="legacy")` et les références gelées permettent de vérifier séparément la compatibilité historique. Les nouveaux tests vérifient l’ajustement de courbes connues croissantes/décroissantes et la cohérence lors de conversions heures/minutes ou de changements d’amplitude. Une sigmoïde unique ne décrit pas nécessairement une courbe biphasique ; consulter les résidus et indicateurs de qualité.
+
+Les conditions sont des cases à cocher disposées en lignes. Les tableaux récapitulatif et complet sont dans deux sections dépliables indépendantes, fermées par défaut. Les définitions des quatre paramètres sont accessibles au survol ou au focus clavier des abréviations au-dessus de la figure ; les en-têtes correspondants du tableau reçoivent les mêmes info-bulles.

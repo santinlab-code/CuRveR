@@ -31,7 +31,7 @@ web_validate_conditions <- function(conditions, wells) {
   conditions
 }
 
-web_analyze <- function(data, conditions, windows, loss = "LAD", seed = 42L) {
+web_analyze <- function(data, conditions, windows, loss = "LAD", seed = 42L, engine="scaled") {
   web_validate_conditions(conditions, unique(data$well))
   losses <- list(LAD = least_absolute_deviation, OLS = ordinary_least_squares,
                  Huber = huber, Tukey = tukey_bisquare, Andrew = andrew, Jaeckel = jaeckel)
@@ -57,8 +57,10 @@ web_analyze <- function(data, conditions, windows, loss = "LAD", seed = 42L) {
     if (!is.na(blank)) part$value <- part$value - blank
     if (length(unique(part$Time)) < 5 || !nrow(part) || diff(range(part$value)) == 0)
       stop(paste(name, signal, ": au moins cinq temps distincts et un signal variable sont nécessaires."))
-    model <- RichardModel$new(part$Time, part$value)
-    model$optimize(DeOptimizer$new(losses[[loss]]))
+    if(engine=="legacy") {
+      model <- RichardModel$new(part$Time, part$value)
+      model$optimize(DeOptimizer$new(losses[[loss]]))
+    } else model<-web_fit_richard(part$Time,part$value,losses[[loss]])
     part$fit <- model$predict(part$Time)
     if (any(!is.finite(part$fit))) stop(paste(name, signal, ": ajustement non fini."))
     part$condition <- name
@@ -69,7 +71,7 @@ web_analyze <- function(data, conditions, windows, loss = "LAD", seed = 42L) {
       VEcv=variance_explained(part$value,part$fit), d_r=willmott_index_agreement(part$value,part$fit))
   }
   list(data=dplyr::bind_rows(rows), parameters=dplyr::bind_rows(parameters),
-       performance=dplyr::bind_rows(performance), settings=list(model="Richard (4 parameters)",optimizer="GA::de",loss=loss, seed=seed,
+       performance=dplyr::bind_rows(performance), settings=list(model="Richard (4 parameters)",optimizer=if(engine=="legacy") "GA::de" else "scaled GA::de + bounded refinement",engine=engine,loss=loss, seed=seed,
        conditions=conditions, windows=windows, R=R.version.string, package=as.character(utils::packageVersion("CuRveR"))))
 }
 
@@ -257,4 +259,31 @@ web_data_page <- function(data, page=1L, size=50L) {
   start<-(page-1L)*size+1L
   if(!nrow(data))return(data)
   data[seq.int(start,min(page*size,nrow(data))),,drop=FALSE]
+}
+
+# Preserve the original four-parameter equation while fitting dimensionless data.
+# This makes slope bounds invariant to minutes versus hours and signal magnitude.
+web_fit_richard <- function(x,y,loss=least_absolute_deviation) {
+  time_scale<-diff(range(x));value_scale<-diff(range(y));origin<-min(x);baseline<-min(y)
+  if(time_scale<=0 || value_scale<=0)stop("A variable signal and distinct times are required.")
+  xn<-(x-origin)/time_scale;yn<-(y-baseline)/value_scale
+  median_y<-tapply(yn,xn,stats::median);times<-as.numeric(names(median_y));o<-order(times)
+  slopes<-diff(as.numeric(median_y)[o])/diff(times[o]);finite<-which(is.finite(slopes))
+  steep<-finite[which.max(abs(slopes[finite]))];direction<-if(stats::coef(stats::lm(yn~xn))[2]<0)-1 else 1
+  slope_bound<-max(1,10*max(abs(slopes[finite])))
+  normalized<-RichardModel$new(xn,yn)
+  normalized$lower<-list(p_max=.9,p_min=-.1,r_max=if(direction<0)-slope_bound else 0,s=0)
+  normalized$upper<-list(p_max=1.1,p_min=.1,r_max=if(direction<0)0 else slope_bound,s=1)
+  normalized$optimize(DeOptimizer$new(loss))
+  lower<-unlist(normalized$lower);upper<-unlist(normalized$upper)
+  objective<-function(p)-loss(normalized)(p)
+  initial<-c(p_max=1,p_min=0,r_max=direction*max(.01,abs(slopes[steep])),s=mean(times[o][c(steep,steep+1)]))
+  best<-normalized$estimated
+  for(start in list(best,initial)){
+    opt<-tryCatch(stats::optim(pmin(upper,pmax(lower,start)),objective,method="L-BFGS-B",lower=lower,upper=upper,control=list(maxit=1000)),error=function(e)NULL)
+    if(!is.null(opt) && is.finite(opt$value) && opt$value<objective(best))best<-opt$par
+  }
+  model<-RichardModel$new(x,y)
+  model$estimated<-c(p_max=baseline+value_scale*unname(best[1]),p_min=baseline+value_scale*unname(best[2]),r_max=value_scale/time_scale*unname(best[3]),s=origin+time_scale*unname(best[4]))
+  model
 }
