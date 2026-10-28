@@ -79,3 +79,9 @@ Les groupes préremplis sont des propositions : ils peuvent être renommés et c
 Les fenêtres restent propres à chaque couple puits/signal. Le passage à un autre puits efface la sélection graphique précédente et recharge ses bornes enregistrées. Cocher la case applique immédiatement la fenêtre affichée à tous les puits et signaux.
 
 La sélection graphique de Time Windows est enregistrée immédiatement dans la session, sans bouton Appliquer. La zone ombrée et les pointillés montrent l’intervalle enregistré lorsque l’on revient sur le puits/signal. Les champs numériques sont aussi enregistrés automatiquement après une courte pause de saisie. Le bouton Appliquer a été supprimé. Le partage global reste conditionné à la case dédiée ; les données et fenêtres ne sont pas conservées après fermeture de la session.
+
+## Analyse et résultats
+
+Le panneau affiche explicitement le modèle de Richard à quatre paramètres, l’évolution différentielle et LAD ; les autres modèles historiques incomplets ne sont pas proposés comme opérationnels. Le signal et la vue (courbes, comparaison des paramètres ou annotations) sont côte à côte. Le menu des conditions est une multisélection compacte. Les options de tracé sont dépliables et le graphique conserve une hauteur de 550 px.
+
+Sous le graphique, la table récapitulative regroupe les paramètres et les indicateurs de qualité par signal/condition. Les données complètes sont parcourables par pages de 50, 100 ou 200 lignes, sans l’ancienne limite des 200 premières lignes. Les tables couvrent l’ensemble des résultats ; le choix du signal et des conditions filtre la figure. L’export CSV conserve toutes les lignes.

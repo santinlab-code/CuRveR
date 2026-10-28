@@ -69,7 +69,7 @@ web_analyze <- function(data, conditions, windows, loss = "LAD", seed = 42L) {
       VEcv=variance_explained(part$value,part$fit), d_r=willmott_index_agreement(part$value,part$fit))
   }
   list(data=dplyr::bind_rows(rows), parameters=dplyr::bind_rows(parameters),
-       performance=dplyr::bind_rows(performance), settings=list(loss=loss, seed=seed,
+       performance=dplyr::bind_rows(performance), settings=list(model="Richard (4 parameters)",optimizer="GA::de",loss=loss, seed=seed,
        conditions=conditions, windows=windows, R=R.version.string, package=as.character(utils::packageVersion("CuRveR"))))
 }
 
@@ -247,4 +247,14 @@ web_read_group_config <- function(config, available) {
   assigned<-unlist(lapply(groups,`[[`,"replicates"),use.names=FALSE)
   if(anyDuplicated(assigned))stop("A well must belong to only one group.")
   list(groups=groups,blank=blank)
+}
+
+web_data_page <- function(data, page=1L, size=50L) {
+  size<-suppressWarnings(as.integer(size));page<-suppressWarnings(as.integer(page))
+  if(length(size)!=1 || is.na(size) || !size %in% c(50L,100L,200L))size<-50L
+  if(length(page)!=1 || is.na(page))page<-1L
+  page<-max(1L,min(page,max(1L,ceiling(nrow(data)/size))))
+  start<-(page-1L)*size+1L
+  if(!nrow(data))return(data)
+  data[seq.int(start,min(page*size,nrow(data))),,drop=FALSE]
 }

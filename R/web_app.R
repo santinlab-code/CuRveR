@@ -11,18 +11,29 @@ modern_ui <- function() bslib::page_navbar(
     bslib::card_footer(shiny::downloadButton("overview_export","Exporter l’aperçu PDF")))),
   bslib::nav_panel("Conditions",bslib::card(bslib::card_header("Réplicats et blancs"),web_conditions_ui("conditions"))),
   bslib::nav_panel("Fenêtres",bslib::card(fill=FALSE,bslib::card_header("Sélectionnez une zone du graphique ou saisissez ses bornes"),bslib::card_body(fillable=FALSE,web_windows_ui("windows")))),
-  bslib::nav_panel("Résultats",bslib::card(
-    shiny::actionButton("run","Lancer l’analyse",class="btn-primary"),shiny::actionButton("cancel","Annuler"),
-    shiny::selectInput("signal","Signal",NULL),shiny::checkboxGroupInput("conditions","Conditions",NULL,inline=TRUE),
-    bslib::navset_card_tab(
-      bslib::nav_panel("Courbes",shiny::selectInput("plot_type","Vue",c("Courbes"="curves","Paramètres"="metrics","Annotations"="annotations")),
-        shiny::selectInput("metric","Paramètre",c("r_max","p_max","p_min","s")),
+  bslib::nav_panel("Résultats",bslib::card(fill=FALSE,
+    bslib::card_header("Analyse — Modèle de Richard (4 paramètres)"),
+    bslib::card_body(fillable=FALSE,
+      shiny::p("Modèle : Richard · Optimisation : évolution différentielle · Coût : LAD"),
+      shiny::div(style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;",
+        shiny::actionButton("run","Lancer l’analyse",class="btn-primary"),shiny::actionButton("cancel","Annuler")),
+      shiny::div(style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;",
+        shiny::div(style="flex:1 1 220px;",shiny::selectInput("signal","Signal",NULL,width="100%")),
+        shiny::div(style="flex:2 1 360px;",shiny::radioButtons("plot_type","Vue",choices=c("Courbes"="curves","Paramètres"="metrics","Annotations"="annotations"),selected="curves",inline=TRUE))),
+      shiny::selectizeInput("conditions","Conditions",choices=NULL,multiple=TRUE,width="100%"),
+      shiny::conditionalPanel("input.plot_type == 'metrics'",shiny::selectInput("metric","Paramètre",c("r_max","p_max","p_min","s"))),
+      shiny::tags$details(shiny::tags$summary("Options du graphique"),
         shiny::checkboxGroupInput("features","Afficher",choices=c("Points"="points","Ajustement"="fit","Moyenne"="mean","Écart-type (halo)"="sd","Écart-type (barres)"="bars","p_max","p_min","s","r_max"),selected=c("points","fit","mean","sd"),inline=TRUE),
-        shiny::plotOutput("result_plot",height="550px",brush=shiny::brushOpts("zoom",direction="x")),
         shiny::checkboxInput("use_zoom","Zoom sur la zone sélectionnée",FALSE)),
-      bslib::nav_panel("Paramètres",shiny::tableOutput("parameters")),
-      bslib::nav_panel("Qualité",shiny::tableOutput("performance")),
-      bslib::nav_panel("Données",shiny::p("Aperçu limité aux 200 premières lignes ; export complet disponible."),shiny::tableOutput("data"))))),
+      shiny::div(style="height:550px;min-height:550px;flex-shrink:0;",shiny::plotOutput("result_plot",height="550px",fill=FALSE,brush=shiny::brushOpts("zoom",direction="x"))),
+      shiny::h4("Valeurs résumées et qualité de l’ajustement"),
+      shiny::div(style="overflow:auto;max-height:420px;",shiny::tableOutput("parameters")),
+      shiny::h4("Données complètes"),
+      shiny::div(style="display:flex;gap:20px;flex-wrap:wrap;",
+        shiny::selectInput("data_size","Lignes par page",c(50,100,200),selected=50),
+        shiny::numericInput("data_page","Page",1,min=1,step=1)),
+      shiny::textOutput("data_count"),
+      shiny::div(style="overflow:auto;max-height:500px;",shiny::tableOutput("data"))))),
   bslib::nav_panel("Export",bslib::card(bslib::card_header("Résultats et reproductibilité"),
     shiny::downloadButton("csv","Données CSV"),shiny::downloadButton("params","Paramètres CSV"),shiny::downloadButton("quality","Qualité CSV"),
     shiny::downloadButton("settings","Configuration YAML"),
@@ -63,7 +74,7 @@ modern_server <- function(input,output,session) {
     if(!process$is_alive()){
       tryCatch({r<-process$get_result();result(r);completed(launched);status("Analyse terminée.")
         shiny::updateSelectInput(session,"signal",choices=unique(r$data$signal))
-        shiny::updateCheckboxGroupInput(session,"conditions",choices=unique(r$data$condition),selected=unique(r$data$condition))
+        shiny::updateSelectizeInput(session,"conditions",choices=unique(r$data$condition),selected=unique(r$data$condition))
       },error=function(e){status("Échec de l’analyse ; résultats précédents conservés.");shiny::showNotification(conditionMessage(e),type="error",duration=NULL)})
       job(NULL)
     }
@@ -90,13 +101,29 @@ modern_server <- function(input,output,session) {
   })
   plot <- shiny::reactive({shiny::req(result(),input$signal,input$conditions)
     p<-web_plot(result(),input$signal,input$conditions,input$plot_type,input$features,input$metric)
+    if(input$plot_type!="metrics") p<-p+ggplot2::labs(x=if(identical(input$language,"fr")) "Temps (unité du fichier)" else "Time (file units)",y=if(identical(input$language,"fr")) "Signal corrigé" else "Corrected signal",color="Condition",fill="Condition")
     if(isTRUE(input$use_zoom) && !is.null(input$zoom) && input$plot_type!="metrics")p<-p+ggplot2::coord_cartesian(xlim=c(input$zoom$xmin,input$zoom$xmax))
     p
   })
-  output$result_plot<-shiny::renderPlot(plot())
-  output$parameters<-shiny::renderTable({shiny::req(result());result()$parameters},digits=6)
+  output$result_plot<-shiny::renderPlot({
+    shiny::validate(shiny::need(!is.null(result()),if(identical(input$language,"fr")) "Lancez l’analyse pour afficher les résultats." else "Run the analysis to display results."),
+      shiny::need(length(input$conditions)>0,if(identical(input$language,"fr")) "Sélectionnez une condition." else "Select a condition."))
+    print(plot())
+  },height=550,res=96,execOnResize=TRUE,width=function(){
+    width<-session$clientData$output_result_plot_width
+    if(is.null(width)||!is.finite(width)||width<100) 900 else width
+  })
+  output$parameters<-shiny::renderTable({shiny::req(result());dplyr::left_join(result()$parameters,result()$performance,by=c("signal","condition"))},digits=6)
   output$performance<-shiny::renderTable({shiny::req(result());result()$performance},digits=4)
-  output$data<-shiny::renderTable({shiny::req(result());utils::head(result()$data,200)})
+  output$data<-shiny::renderTable({shiny::req(result());web_data_page(result()$data,input$data_page,input$data_size)})
+  shiny::observeEvent(list(result(),input$data_size),{
+    shiny::req(result());size<-as.integer(input$data_size %||% 50)
+    shiny::updateNumericInput(session,"data_page",value=1,min=1,max=max(1,ceiling(nrow(result()$data)/size)))
+  })
+  output$data_count<-shiny::renderText({
+    shiny::req(result());total<-nrow(result()$data);size<-as.integer(input$data_size %||% 50)
+    paste(total,if(identical(input$language,"fr")) "lignes au total · Pages :" else "total rows · Pages:",max(1,ceiling(total/size)))
+  })
   ready<-function(){shiny::req(result(),is.null(job()));if(revision()!=completed())stop("Résultats obsolètes : relancez l’analyse.")}
   output$csv<-shiny::downloadHandler(function()"curver_data.csv",function(file){ready();readr::write_csv(result()$data,file)})
   output$params<-shiny::downloadHandler(function()"curver_parameters.csv",function(file){ready();readr::write_csv(result()$parameters,file)})

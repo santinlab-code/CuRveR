@@ -205,3 +205,12 @@ test_that("checking global mode immediately propagates the current saved window"
   })
   expect_false(grepl('id="w-apply"',as.character(CuRveR:::web_windows_ui('w'))))
 })
+
+test_that("complete result data are accessible beyond the old 200-row limit", {
+  d<-data.frame(row=1:537,value=seq_len(537)/10)
+  pages<-lapply(1:11,function(page)CuRveR:::web_data_page(d,page,50))
+  expect_equal(do.call(rbind,pages),d)
+  expect_equal(nrow(CuRveR:::web_data_page(d,11,50)),37)
+  expect_equal(CuRveR:::web_data_page(d,999,50),pages[[11]])
+  expect_equal(CuRveR:::web_data_page(d,NA,NA),pages[[1]])
+})
