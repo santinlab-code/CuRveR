@@ -229,3 +229,16 @@ test_that("scaled Richard fitting recovers smooth known curves independent of un
     expect_equal(large$predict()/10000,fit$predict(),tolerance=.005)
   }
 })
+
+test_that("positive result view preserves negative measurements and fit values", {
+  d<-data.frame(Time=0:2,value=c(-.1,.2,.4),fit=c(-.05,.2,.4),condition="C",signal="OD",well="A1")
+  r<-list(data=d);original<-r
+  p<-CuRveR:::web_plot(r,"OD","C")
+  built<-ggplot2::ggplot_build(p)
+  expect_equal(built$layout$panel_params[[1]]$y.range[1],0)
+  expect_equal(p$data$value,c(-.1,.2,.4))
+  expect_equal(r,original)
+  signed<-ggplot2::ggplot_build(CuRveR:::web_plot(r,"OD","C",positive=FALSE))
+  expect_lt(signed$layout$panel_params[[1]]$y.range[1],0)
+  expect_match(p$labels$x,"in min",fixed=TRUE)
+})

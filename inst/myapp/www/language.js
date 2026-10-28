@@ -14,6 +14,7 @@ translations["Valeurs résumées et qualité de l’ajustement"]="Summarized val
 translations["Données complètes"]="Complete data";
 translations["Lignes par page"]="Rows per page";
 translations["Modèle : Richard · Optimisation : évolution différentielle et raffinement borné · Coût : LAD"]="Model: Richard · Optimizer: differential evolution and bounded refinement · Loss: LAD";
+translations["Afficher les valeurs corrigées négatives"]="Show negative corrected values";
 (()=>{
 let language='en';
 const original=new WeakMap();
@@ -37,12 +38,8 @@ function translate(){
   if(fr){const next=language==='en'?translations[fr]:fr;if(text!==next)node.textContent=node.textContent.replace(text,next);}
  }
 }
-function parameterTitles(){
- const definitions={};document.querySelectorAll('#parameter_help abbr').forEach(e=>definitions[e.textContent.trim()]=e.title);
- document.querySelectorAll('#parameters th,#metric option,#metric + .selectize-control .item,#features label').forEach(e=>{const key=e.textContent.trim();if(definitions[key])e.title=definitions[key]});
-}
-function start(){translate();parameterTitles();document.addEventListener('change',e=>{if(e.target.id==='language')translate()});
- new MutationObserver(()=>{translate();parameterTitles()}).observe(document.body,{childList:true,subtree:true,characterData:true});}
+function start(){translate();document.addEventListener('change',e=>{if(e.target.id==='language')translate()});
+ new MutationObserver(()=>{translate()}).observe(document.body,{childList:true,subtree:true,characterData:true});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
 

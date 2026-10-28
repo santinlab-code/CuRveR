@@ -75,7 +75,7 @@ web_analyze <- function(data, conditions, windows, loss = "LAD", seed = 42L, eng
        conditions=conditions, windows=windows, R=R.version.string, package=as.character(utils::packageVersion("CuRveR"))))
 }
 
-web_plot <- function(result, signal, conditions, type="curves", features=c("points","fit","mean","sd"), metric="r_max") {
+web_plot <- function(result, signal, conditions, type="curves", features=c("points","fit","mean","sd"), metric="r_max", positive=TRUE, xlim=NULL) {
   d <- result$data[result$data$signal == signal & result$data$condition %in% conditions, ]
   if (type == "metrics") return(ggplot2::ggplot(unique(d[c("condition",metric)]),
     ggplot2::aes(x=.data[[metric]], y=condition, color=condition)) + ggplot2::geom_point(size=4) + ggplot2::theme_minimal())
@@ -97,7 +97,10 @@ web_plot <- function(result, signal, conditions, type="curves", features=c("poin
       p <- p + ggplot2::geom_abline(data=d,ggplot2::aes(slope=r_max,intercept=intercept),linetype=2)
     }
   }
-  p + ggplot2::theme_minimal(base_size=13) + ggplot2::labs(x="Temps (unité du fichier)",y="Signal corrigé",color="Condition",fill="Condition")
+  upper<-max(c(d$value,d$fit,summary$mean+summary$sd),na.rm=TRUE)
+  upper<-if(is.finite(upper) && upper>0)upper*1.08 else 1
+  p + ggplot2::theme_minimal(base_size=13) + ggplot2::labs(x="Time (in min)",y="Signal corrigé",color="Condition",fill="Condition")+
+    ggplot2::coord_cartesian(xlim=xlim,ylim=if(positive)c(0,upper) else NULL,expand=if(positive)FALSE else TRUE)
 }
 
 # A single invertible display transform, shared by all well panels.
@@ -109,7 +112,7 @@ web_overview_plot <- function(data, language="en") {
   if(is.null(fluorescence)) {
     return(ggplot2::ggplot(data,ggplot2::aes(Time,value,group=signal))+
       ggplot2::geom_line(color="black")+ggplot2::facet_wrap(~well)+
-      ggplot2::labs(x="Temps (unité du fichier)",y=od)+ggplot2::theme_minimal())
+      ggplot2::labs(x="Time (in min)",y=od)+ggplot2::theme_minimal())
   }
   left <- data[data$signal==od,]
   right <- data[data$signal==fluorescence,]
@@ -132,7 +135,7 @@ web_overview_plot <- function(data, language="en") {
     ggplot2::facet_wrap(~well)+
     ggplot2::scale_y_continuous(name=paste0("OD600 — ",od),
       sec.axis=ggplot2::sec_axis(function(x) x * factor + offset,name=paste0("Signal — ",fluorescence)))+
-    ggplot2::labs(x=if(language=="fr") "Temps (minutes pour Excel)" else "Time (minutes for Excel)",
+    ggplot2::labs(x=if(language=="fr") "Temps (in min)" else "Time (in min)",
       caption=if(language=="fr") "Noir : OD600 (axe gauche) · Rouge : signal (axe droit). Minima et maxima des axes alignés." else "Black: OD600 (left axis) · Red: signal (right axis). Axis minima and maxima aligned.")+
     ggplot2::theme_minimal(base_size=12)+
     ggplot2::theme(plot.background=ggplot2::element_rect(fill="white",color=NA),

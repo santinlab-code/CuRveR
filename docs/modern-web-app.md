@@ -95,3 +95,9 @@ Le nouveau moteur ajuste temps et amplitude normalisés, calcule des bornes de p
 Les résultats numériques changent volontairement par rapport au moteur défectueux ; le mode interne `web_analyze(..., engine="legacy")` et les références gelées permettent de vérifier séparément la compatibilité historique. Les nouveaux tests vérifient l’ajustement de courbes connues croissantes/décroissantes et la cohérence lors de conversions heures/minutes ou de changements d’amplitude. Une sigmoïde unique ne décrit pas nécessairement une courbe biphasique ; consulter les résidus et indicateurs de qualité.
 
 Les conditions sont des cases à cocher disposées en lignes. Les tableaux récapitulatif et complet sont dans deux sections dépliables indépendantes, fermées par défaut. Les définitions des quatre paramètres sont accessibles au survol ou au focus clavier des abréviations au-dessus de la figure ; les en-têtes correspondants du tableau reçoivent les mêmes info-bulles.
+
+## Affichage des résultats et unités
+
+Après analyse, l’OD choisie à l’import est sélectionnée en premier. Les axes temporels affichent « Time (in min) » ; les dates/heures Excel sont converties en minutes et les colonnes temporelles numériques doivent donc être fournies en minutes. Les paramètres de vitesse restent exprimés par unité temporelle des données.
+
+Les courbes utilisent par défaut un cadrage Y à partir de zéro, sans modifier les valeurs. Les valeurs corrigées négatives restent dans l’ajustement, les tableaux et les exports ; un message indique combien de mesures sont hors du cadrage positif. L’option « Show negative corrected values » permet de les revoir. Une mesure inférieure à la moyenne du groupe blanc donne un signal corrigé négatif : vérifier le blanc plutôt que rectifier artificiellement les données. Les graphiques de paramètres gardent leurs valeurs signées, notamment r_max pour une décroissance. Les info-bulles des paramètres ont été retirées.

@@ -4,7 +4,7 @@ modern_ui <- function() bslib::page_navbar(
   sidebar=bslib::sidebar(title="Votre analyse",width=290,
     shiny::p("Import → Conditions → Fenêtres → Résultats"),
     shiny::textOutput("counts"),shiny::hr(),
-    shiny::textOutput("status"),shiny::p("Excel times are converted to minutes. Blanks are subtracted using the historical calculation.")),
+    shiny::textOutput("status"),shiny::uiOutput("correction_description")),
   bslib::nav_panel("Import",bslib::card(bslib::card_header("Fichiers et préparation"),web_import_ui("import"))),
   bslib::nav_panel("Aperçu",bslib::card(fill=FALSE,
     bslib::card_body(fillable=FALSE,shiny::uiOutput("overview_container")),
@@ -21,12 +21,13 @@ modern_ui <- function() bslib::page_navbar(
         shiny::div(style="flex:1 1 220px;",shiny::selectInput("signal","Signal",NULL,width="100%")),
         shiny::div(style="flex:2 1 360px;",shiny::radioButtons("plot_type","Vue",choices=c("Courbes"="curves","Paramètres"="metrics","Annotations"="annotations"),selected="curves",inline=TRUE))),
       shiny::checkboxGroupInput("conditions","Conditions",choices=NULL,inline=TRUE),
-      shiny::uiOutput("parameter_help"),
       shiny::conditionalPanel("input.plot_type == 'metrics'",shiny::selectInput("metric","Paramètre",c("r_max","p_max","p_min","s"))),
       shiny::tags$details(shiny::tags$summary("Options du graphique"),
         shiny::checkboxGroupInput("features","Afficher",choices=c("Points"="points","Ajustement"="fit","Moyenne"="mean","Écart-type (halo)"="sd","Écart-type (barres)"="bars","p_max","p_min","s","r_max"),selected=c("points","fit","mean","sd"),inline=TRUE),
-        shiny::checkboxInput("use_zoom","Zoom sur la zone sélectionnée",FALSE)),
+        shiny::checkboxInput("use_zoom","Zoom sur la zone sélectionnée",FALSE),
+        shiny::checkboxInput("show_negative","Afficher les valeurs corrigées négatives",FALSE)),
       shiny::div(style="height:550px;min-height:550px;flex-shrink:0;",shiny::plotOutput("result_plot",height="550px",fill=FALSE,brush=shiny::brushOpts("zoom",direction="x"))),
+      shiny::textOutput("negative_note"),
       shiny::tags$details(shiny::tags$summary("Valeurs résumées et qualité de l’ajustement"),
       shiny::div(style="overflow:auto;max-height:420px;",shiny::tableOutput("parameters"))),
       shiny::tags$details(shiny::tags$summary("Données complètes"),
@@ -57,11 +58,9 @@ modern_server <- function(input,output,session) {
   shiny::observeEvent(list(data(),conditions(),windows()),{
     revision(shiny::isolate(revision())+1L)
   },ignoreNULL=FALSE)
-  output$parameter_help<-shiny::renderUI({
-    fr<-identical(input$language,"fr")
-    descriptions<-if(fr)c(p_max="Asymptote haute : niveau maximal du signal ajusté.",p_min="Asymptote basse : niveau minimal du signal ajusté.",r_max="Pente au point d’inflexion, en unités de signal par unité de temps. Négative pour une décroissance.",s="Temps du point d’inflexion, où la pente est maximale en valeur absolue ; ce n’est pas un temps de latence.") else c(p_max="Upper asymptote: maximum level of the fitted signal.",p_min="Lower asymptote: minimum level of the fitted signal.",r_max="Slope at the inflection point, in signal units per time unit. Negative for a decreasing curve.",s="Time of the inflection point, where the absolute slope is largest; not a lag time.")
-    shiny::div(style="display:flex;gap:18px;flex-wrap:wrap;",lapply(names(descriptions),function(key)shiny::tags$abbr(key,title=descriptions[[key]],tabindex=0,style="cursor:help;")))
-  })
+  output$correction_description<-shiny::renderUI(shiny::p(if(identical(input$language,"fr"))
+    "Signal corrigé = mesure moins la moyenne du groupe blanc, calculée séparément pour l’OD et chaque signal dans les fenêtres sélectionnées. Sans blanc, la mesure est conservée. Une valeur négative signifie que la mesure est inférieure au blanc."
+    else "Corrected signal = measurement minus the blank-group mean, calculated separately for OD and each signal within the selected windows. Without a blank, the measurement is unchanged. Negative values mean the measurement is below the blank."))
   output$counts <- shiny::renderText({d<-data();if(is.null(d))"Aucune donnée" else paste(length(unique(d$signal)),if(identical(input$language,"fr")) "signaux ·" else "signals ·",length(unique(d$well)),if(identical(input$language,"fr")) "puits ·" else "wells ·",length(conditions()),"conditions")})
   output$status <- shiny::renderText({paste(status(),if(!is.null(result()) && revision()!=completed())"Paramètres modifiés : relancez l’analyse avant export." else "")})
   shiny::observeEvent(input$run,{
@@ -79,7 +78,7 @@ modern_server <- function(input,output,session) {
     process<-job();if(is.null(process))return();shiny::invalidateLater(500,session)
     if(!process$is_alive()){
       tryCatch({r<-process$get_result();result(r);completed(launched);status("Analyse terminée.")
-        shiny::updateSelectInput(session,"signal",choices=unique(r$data$signal))
+        shiny::updateSelectInput(session,"signal",choices=unique(r$data$signal),selected=attr(data(),"od_signal") %||% unique(r$data$signal)[1])
         shiny::updateCheckboxGroupInput(session,"conditions",choices=unique(r$data$condition),selected=unique(r$data$condition))
       },error=function(e){status("Échec de l’analyse ; résultats précédents conservés.");shiny::showNotification(conditionMessage(e),type="error",duration=NULL)})
       job(NULL)
@@ -106,10 +105,17 @@ modern_server <- function(input,output,session) {
     if(identical(input$page,"Aperçu")) session$sendCustomMessage("curver-overview-resize",list())
   })
   plot <- shiny::reactive({shiny::req(result(),input$signal,input$conditions)
-    p<-web_plot(result(),input$signal,input$conditions,input$plot_type,input$features,input$metric)
-    if(input$plot_type!="metrics") p<-p+ggplot2::labs(x=if(identical(input$language,"fr")) "Temps (unité du fichier)" else "Time (file units)",y=if(identical(input$language,"fr")) "Signal corrigé" else "Corrected signal",color="Condition",fill="Condition")
-    if(isTRUE(input$use_zoom) && !is.null(input$zoom) && input$plot_type!="metrics")p<-p+ggplot2::coord_cartesian(xlim=c(input$zoom$xmin,input$zoom$xmax))
+    xlim<-if(isTRUE(input$use_zoom) && !is.null(input$zoom)) c(input$zoom$xmin,input$zoom$xmax) else NULL
+    p<-web_plot(result(),input$signal,input$conditions,input$plot_type,input$features,input$metric,positive=!isTRUE(input$show_negative),xlim=xlim)
+    if(input$plot_type!="metrics") p<-p+ggplot2::labs(x=if(identical(input$language,"fr")) "Temps (in min)" else "Time (in min)",y=if(identical(input$language,"fr")) "Signal corrigé" else "Corrected signal",color="Condition",fill="Condition")
     p
+  })
+  output$negative_note<-shiny::renderText({
+    shiny::req(result(),input$signal)
+    d<-result()$data;d<-d[d$signal==input$signal & d$condition %in% input$conditions,]
+    n<-sum(d$value<0)
+    if(!n || isTRUE(input$show_negative) || input$plot_type=="metrics")return("")
+    paste(n,if(identical(input$language,"fr")) "valeurs corrigées négatives hors du cadre positif. Elles restent dans les calculs et exports ; activez leur affichage dans Options du graphique pour les voir." else "negative corrected values are outside the positive view. They remain in calculations and exports; enable their display in Plot options to view them.")
   })
   output$result_plot<-shiny::renderPlot({
     shiny::validate(shiny::need(!is.null(result()),if(identical(input$language,"fr")) "Lancez l’analyse pour afficher les résultats." else "Run the analysis to display results."),

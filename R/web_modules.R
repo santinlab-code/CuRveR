@@ -215,7 +215,7 @@ web_windows_server <- function(id,data,conditions=NULL) shiny::moduleServer(id,f
     ggplot2::ggplot(d,ggplot2::aes(Time,value))+
       ggplot2::annotate("rect",xmin=saved$left,xmax=saved$right,ymin=-Inf,ymax=Inf,fill="#00284B",alpha=.08)+
       ggplot2::geom_line(color="#00284B")+ggplot2::geom_point()+
-      ggplot2::geom_vline(xintercept=c(saved$left,saved$right),linetype=2)+ggplot2::theme_minimal()
+      ggplot2::geom_vline(xintercept=c(saved$left,saved$right),linetype=2)+ggplot2::labs(x="Time (in min)")+ggplot2::theme_minimal()
   },height=500,res=96,execOnResize=TRUE,width=function(){
     width<-session$clientData$output_plot_width
     if(is.null(width) || !is.finite(width) || width<100) 800 else width
