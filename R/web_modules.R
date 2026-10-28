@@ -163,7 +163,7 @@ web_windows_ui <- function(id) {
       shiny::actionButton(ns("apply"),"Appliquer la fenêtre")),
     shiny::div(style="flex:3 1 400px;min-width:280px;height:500px;min-height:500px;",
       shiny::plotOutput(ns("plot"),height="500px",fill=FALSE,
-        brush=shiny::brushOpts(ns("brush"),direction="x"))))
+        brush=shiny::brushOpts(ns("brush"),direction="x",resetOnNew=TRUE))))
 }
 web_windows_server <- function(id,data,conditions=NULL) shiny::moduleServer(id,function(input,output,session){
   windows<-shiny::reactiveVal(NULL)
@@ -176,11 +176,19 @@ web_windows_server <- function(id,data,conditions=NULL) shiny::moduleServer(id,f
     shiny::req(windows());w<-windows();w<-w[w$signal==input$signal & w$well==input$well,];shiny::req(nrow(w)==1)
     shiny::updateNumericInput(session,"left",value=w$left);shiny::updateNumericInput(session,"right",value=w$right)
   })
-  shiny::observeEvent(input$brush,{shiny::updateNumericInput(session,"left",value=input$brush$xmin);shiny::updateNumericInput(session,"right",value=input$brush$xmax)})
+  shiny::observeEvent(list(input$signal,input$well),{
+    # The brush belongs to the displayed series, never to the next selected well.
+    session$resetBrush("brush")
+  })
+  shiny::observeEvent(input$brush,{
+    shiny::req(input$signal,input$well,is.finite(input$brush$xmin),is.finite(input$brush$xmax))
+    shiny::updateNumericInput(session,"left",value=input$brush$xmin)
+    shiny::updateNumericInput(session,"right",value=input$brush$xmax)
+  })
   shiny::observeEvent(input$apply,{
-    shiny::req(windows(),is.finite(input$left),is.finite(input$right))
+    shiny::req(windows(),input$signal,input$well,is.finite(input$left),is.finite(input$right))
     if(input$left>=input$right){shiny::showNotification("Le début doit précéder la fin.",type="error");return()}
-    w<-windows();i<-if(input$all) rep(TRUE,nrow(w)) else w$signal==input$signal & w$well==input$well
+    w<-windows();i<-if(isTRUE(input$all)) rep(TRUE,nrow(w)) else w$signal==input$signal & w$well==input$well
     w$left[i]<-input$left;w$right[i]<-input$right;windows(w)
   })
   output$plot<-shiny::renderPlot({shiny::req(data(),windows(),input$signal,input$well)

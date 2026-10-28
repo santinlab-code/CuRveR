@@ -75,3 +75,5 @@ La correction conserve le calcul historique : pour chaque signal (OD et fluoresc
 L’export YAML des conditions (version 2) contient les groupes éditables et le nom du groupe blanc. Les anciens fichiers avec un blanc commun sont importés en reconstruisant un groupe Blank modifiable. Des blancs différents par condition donnent un message d’erreur explicite.
 
 Les groupes préremplis sont des propositions : ils peuvent être renommés et contenir deux, trois, quatre puits ou davantage. Retirer un puits l’exclut du groupe ; ajouter un puits le déplace depuis son groupe précédent pour éviter les doublons. Enregistrer applique les changements. Supprimer le groupe blanc désactive la correction jusqu’à un nouveau choix.
+
+Les fenêtres restent propres à chaque couple puits/signal. Le passage à un autre puits efface la sélection graphique précédente et recharge ses bornes enregistrées. Le bouton Appliquer ne modifie tous les puits et signaux que si la case correspondante est explicitement cochée.

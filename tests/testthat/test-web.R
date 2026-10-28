@@ -158,3 +158,21 @@ test_that("renaming and editing any group preserves the common blank identity", 
   expect_equal(config,edit)
   expect_error(CuRveR:::web_edit_group(edit$groups,"Treatment","Medium","A1",edit$blank,wells),"exists")
 })
+
+test_that("time windows stay local unless global application is explicitly checked", {
+  d<-expand.grid(Time=0:10,well=c("A1","A2"),signal=c("OD","Signal"),stringsAsFactors=FALSE);d$value<-d$Time
+  shiny::testServer(CuRveR:::web_windows_server,args=list(data=shiny::reactive(d)),{
+    session$setInputs(signal="OD",well="A1",all=FALSE,left=2,right=8,apply=1)
+    w<-windows();expect_equal(w$left[w$signal=="OD" & w$well=="A1"],2)
+    expect_true(all(w$left[!(w$signal=="OD" & w$well=="A1")]==0))
+    session$setInputs(signal="OD",well="A2")
+    expect_equal(windows(),w)
+    session$setInputs(signal="Signal",well="A1",left=3,right=7,apply=2)
+    expect_equal(windows()$left[windows()$signal=="OD" & windows()$well=="A1"],2)
+    expect_equal(windows()$left[windows()$signal=="Signal" & windows()$well=="A1"],3)
+    session$setInputs(all=TRUE,left=1,right=9,apply=3)
+    expect_true(all(windows()$left==1));expect_true(all(windows()$right==9))
+    session$setInputs(all=FALSE,well="A2",left=4,right=6,apply=4)
+    expect_equal(sum(windows()$left==4),1)
+  })
+})
