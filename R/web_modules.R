@@ -160,8 +160,7 @@ web_windows_ui <- function(id) {
       shiny::selectInput(ns("signal"),"Signal",NULL),shiny::selectInput(ns("well"),"Puits",NULL),
       shiny::checkboxInput(ns("all"),"Appliquer à tous les puits et signaux",FALSE),
       shiny::numericInput(ns("left"),"Début",0),shiny::numericInput(ns("right"),"Fin",24),
-      shiny::actionButton(ns("apply"),"Appliquer la fenêtre"),
-      shiny::helpText("La sélection sur le graphique est enregistrée automatiquement. Pour des bornes saisies au clavier, cliquez sur Appliquer.")),
+      shiny::helpText("La sélection graphique et les bornes saisies sont enregistrées automatiquement. Cocher la case applique immédiatement la fenêtre affichée à tous les puits et signaux.")),
     shiny::div(style="flex:3 1 400px;min-width:280px;height:500px;min-height:500px;",
       shiny::plotOutput(ns("plot"),height="500px",fill=FALSE,
         brush=shiny::brushOpts(ns("brush"),direction="x",resetOnNew=TRUE))))
@@ -189,11 +188,24 @@ web_windows_server <- function(id,data,conditions=NULL) shiny::moduleServer(id,f
     w$left[i]<-input$brush$xmin;w$right[i]<-input$brush$xmax
     windows(w)
   })
-  shiny::observeEvent(input$apply,{
-    shiny::req(windows(),input$signal,input$well,is.finite(input$left),is.finite(input$right))
-    if(input$left>=input$right){shiny::showNotification("Le début doit précéder la fin.",type="error");return()}
-    w<-windows();i<-if(isTRUE(input$all)) rep(TRUE,nrow(w)) else w$signal==input$signal & w$well==input$well
-    w$left[i]<-input$left;w$right[i]<-input$right;windows(w)
+  save_bounds <- function(left,right,signal,well,all=FALSE){
+    shiny::req(windows(),signal,well,length(left)==1,length(right)==1,is.finite(left),is.finite(right))
+    if(left>=right){shiny::showNotification("Le début doit précéder la fin.",type="error");return()}
+    w<-windows();i<-if(isTRUE(all)) rep(TRUE,nrow(w)) else w$signal==signal & w$well==well
+    if(!any(i))return()
+    if(all(w$left[i]==left & w$right[i]==right))return()
+    w$left[i]<-left;w$right[i]<-right;windows(w)
+  }
+  shiny::observeEvent(input$bounds_edit,{
+    edit<-input$bounds_edit
+    save_bounds(edit$left,edit$right,edit$signal,edit$well,isTRUE(edit$all))
+  })
+  shiny::observeEvent(input$all,{
+    if(!isTRUE(input$all))return()
+    shiny::req(windows(),input$signal,input$well)
+    current<-windows();current<-current[current$signal==input$signal & current$well==input$well,]
+    shiny::req(nrow(current)==1)
+    save_bounds(current$left,current$right,input$signal,input$well,TRUE)
   })
   output$plot<-shiny::renderPlot({shiny::req(data(),windows(),input$signal,input$well)
     d<-data()

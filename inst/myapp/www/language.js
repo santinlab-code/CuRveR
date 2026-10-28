@@ -6,6 +6,7 @@ translations["Soustrait à toutes les conditions, séparément pour chaque signa
 translations["Groupe blanc commun"]="Shared blank group";
 translations["Renommez le groupe et ajustez ses puits, puis enregistrez. Un puits ajouté est déplacé depuis son ancien groupe."]="Rename the group and adjust its wells, then save. Added wells are moved from their previous group.";
 translations["La sélection sur le graphique est enregistrée automatiquement. Pour des bornes saisies au clavier, cliquez sur Appliquer."]="Graph selections are saved automatically. For limits entered by keyboard, click Apply.";
+translations["La sélection graphique et les bornes saisies sont enregistrées automatiquement. Cocher la case applique immédiatement la fenêtre affichée à tous les puits et signaux."]="Graph selections and typed limits are saved automatically. Checking the box immediately applies the displayed window to all wells and signals.";
 (()=>{
 let language='en';
 const original=new WeakMap();
@@ -37,3 +38,28 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 $(document).on('shiny:connected',()=>{
  Shiny.addCustomMessageHandler('curver-overview-resize',(message)=>{setTimeout(()=>window.dispatchEvent(new Event('resize')),200)});
 });
+
+// Capture the series at edit time: delayed edits cannot leak into another well.
+(()=>{
+ const pending=new Map();
+ function capture(){
+  const left=document.getElementById('windows-left'),right=document.getElementById('windows-right');
+  if(!left||!right||left.value===''||right.value==='')return null;
+  return {left:Number(left.value),right:Number(right.value),
+   signal:document.getElementById('windows-signal')?.value,
+   well:document.getElementById('windows-well')?.value,
+   all:document.getElementById('windows-all')?.checked===true,nonce:Date.now()};
+ }
+ function send(edit){if(edit?.signal&&edit?.well&&window.Shiny)Shiny.setInputValue('windows-bounds_edit',edit,{priority:'event'});}
+ document.addEventListener('input',event=>{
+  if(!event.isTrusted||!['windows-left','windows-right'].includes(event.target.id))return;
+  const edit=capture();if(!edit)return;const key=edit.signal+'|'+edit.well;
+  clearTimeout(pending.get(key));pending.set(key,setTimeout(()=>{pending.delete(key);send(edit)},400));
+ });
+ document.addEventListener('change',event=>{
+  if(event.target.id==='windows-all'){
+   for(const timer of pending.values())clearTimeout(timer);pending.clear();
+   const edit=capture();if(edit)send(edit);
+  }
+ });
+})();

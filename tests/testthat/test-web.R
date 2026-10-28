@@ -162,17 +162,17 @@ test_that("renaming and editing any group preserves the common blank identity", 
 test_that("time windows stay local unless global application is explicitly checked", {
   d<-expand.grid(Time=0:10,well=c("A1","A2"),signal=c("OD","Signal"),stringsAsFactors=FALSE);d$value<-d$Time
   shiny::testServer(CuRveR:::web_windows_server,args=list(data=shiny::reactive(d)),{
-    session$setInputs(signal="OD",well="A1",all=FALSE,left=2,right=8,apply=1)
+    session$setInputs(signal="OD",well="A1",all=FALSE,bounds_edit=list(signal="OD",well="A1",left=2,right=8,all=FALSE))
     w<-windows();expect_equal(w$left[w$signal=="OD" & w$well=="A1"],2)
     expect_true(all(w$left[!(w$signal=="OD" & w$well=="A1")]==0))
     session$setInputs(signal="OD",well="A2")
     expect_equal(windows(),w)
-    session$setInputs(signal="Signal",well="A1",left=3,right=7,apply=2)
+    session$setInputs(signal="Signal",well="A1",bounds_edit=list(signal="Signal",well="A1",left=3,right=7,all=FALSE))
     expect_equal(windows()$left[windows()$signal=="OD" & windows()$well=="A1"],2)
     expect_equal(windows()$left[windows()$signal=="Signal" & windows()$well=="A1"],3)
-    session$setInputs(all=TRUE,left=1,right=9,apply=3)
+    session$setInputs(all=TRUE,bounds_edit=list(signal="Signal",well="A1",left=1,right=9,all=TRUE))
     expect_true(all(windows()$left==1));expect_true(all(windows()$right==9))
-    session$setInputs(all=FALSE,well="A2",left=4,right=6,apply=4)
+    session$setInputs(all=FALSE,well="A2",bounds_edit=list(signal="Signal",well="A2",left=4,right=6,all=FALSE))
     expect_equal(sum(windows()$left==4),1)
   })
 })
@@ -191,4 +191,17 @@ test_that("brushed windows persist immediately without Apply", {
     session$setInputs(all=TRUE,brush=list(xmin=1,xmax=9))
     expect_true(all(windows()$left==1));expect_true(all(windows()$right==9))
   })
+})
+
+test_that("checking global mode immediately propagates the current saved window", {
+  d<-expand.grid(Time=0:10,well=c("A1","A2"),signal=c("OD","Signal"),stringsAsFactors=FALSE);d$value<-d$Time
+  shiny::testServer(CuRveR:::web_windows_server,args=list(data=shiny::reactive(d)),{
+    session$setInputs(signal="OD",well="A1",all=FALSE,brush=list(xmin=2,xmax=8))
+    session$setInputs(all=TRUE,brush=NULL)
+    expect_true(all(windows()$left==2));expect_true(all(windows()$right==8))
+    session$setInputs(all=FALSE,well="A2",bounds_edit=list(signal="OD",well="A1",left=3,right=7,all=FALSE))
+    expect_equal(windows()$left[windows()$signal=="OD" & windows()$well=="A1"],3)
+    expect_equal(windows()$left[windows()$signal=="OD" & windows()$well=="A2"],2)
+  })
+  expect_false(grepl('id="w-apply"',as.character(CuRveR:::web_windows_ui('w'))))
 })
