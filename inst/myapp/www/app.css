@@ -1,0 +1,28 @@
+/* Keep the download controls independent of the expanded settings height. */
+.plot-save-panel{margin:12px 0 20px;padding:14px 16px;background:#f5f8fb;border:1px solid #dce4ec;border-radius:10px;max-width:640px}
+.plot-save-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.plot-save-format{flex:0 0 110px}
+.plot-save-format .shiny-input-container,.plot-save-format .selectize-control{margin:0!important}
+.plot-save-format .selectize-input{min-height:38px;display:flex;align-items:center}
+.plot-save-toolbar #figure{display:inline-flex;align-items:center;gap:6px;min-height:38px;margin:0;padding:7px 13px;background:#00284b;color:#fff;border:1px solid #00284b;white-space:nowrap}
+.plot-save-toolbar #figure:hover{background:#123e66}
+.plot-save-options{margin-top:10px;font-size:.9rem}
+.plot-save-options summary{color:#334d65;cursor:pointer;padding:4px 0;width:fit-content}
+.plot-save-dimensions{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:14px;margin-top:12px}
+.plot-save-dimensions .shiny-input-container{width:100%!important;margin-bottom:0}
+/* Markdown-like document rhythm, with semantic headings and real lists. */
+.help-markdown{max-width:900px;margin:0 auto;padding:16px 20px 28px;color:#25374a;line-height:1.75;overflow-wrap:anywhere}
+.help-markdown h2{font-size:1.9rem;font-weight:650;color:#00284b;margin:0 0 12px}
+.help-markdown .help-intro{font-size:1.08rem;color:#53677c;margin-bottom:24px}
+.help-contents{display:flex;flex-wrap:wrap;gap:10px 18px;padding:16px 0 24px;border-bottom:1px solid #dce4ec}
+.help-contents a{color:#00284b;text-decoration:underline;text-underline-offset:4px}
+.help-markdown section{padding:28px 0;border-bottom:1px solid #e3e9ef;scroll-margin-top:100px}
+.help-markdown h3{font-size:1.45rem;font-weight:650;color:#00284b;margin:0 0 20px}
+.help-markdown h4{font-size:1rem;font-weight:650;margin:20px 0 10px}
+.help-markdown p{margin:0 0 18px}
+.help-markdown ol,.help-markdown ul{padding-left:1.5rem;margin:10px 0 0}
+.help-markdown li{padding-left:6px;margin:0 0 12px}
+.help-markdown li::marker{color:#00284b;font-weight:600}
+.help-documentation{margin-top:28px;padding:22px 24px;border-left:4px solid #00284b;border-radius:0 8px 8px 0;background:#f5f8fb}
+.help-documentation h3{font-size:1.15rem;margin-bottom:12px}
+@media(max-width:600px){.help-markdown{padding:12px 4px}.plot-save-panel{padding:12px}.plot-save-dimensions{grid-template-columns:1fr}}

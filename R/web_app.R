@@ -1,6 +1,6 @@
 modern_ui <- function() bslib::page_navbar(
   title=shiny::tagList(shiny::div(style="display:inline-block;margin-right:14px",shiny::tags$select(id="language",class="shiny-input-select form-select",`aria-label`="Language / Langue",shiny::tags$option(value="en",selected="selected","EN"),shiny::tags$option(value="fr","FR"))),"CuRveR 2.0"),id="page",theme=bslib::bs_theme(version=5, bootswatch="flatly",primary="#00284B",success="#00284B",base_font="system-ui"),
-  header=shiny::tagList(shiny::tags$script(src="curver/language.js"),shiny::tags$style(shiny::HTML("body{background:#f3f6f8}.bslib-card{border:0;box-shadow:0 2px 12px #1232}.navbar{border-bottom:3px solid #00284B}.navbar .nav-link{color:#fff!important}.navbar .nav-link.active,.navbar .nav-link[aria-selected=true]{color:#00284B!important;background:#fff!important;border-radius:6px;font-weight:600}.navbar .nav-link:focus-visible{outline:2px solid #fff;outline-offset:3px}.shiny-output-error-validation{color:#9c3c19}.form-control{border-radius:6px}table{font-variant-numeric:tabular-nums}#conditions .shiny-options-group{display:flex;flex-wrap:wrap;gap:8px 18px}#conditions .form-check{margin:0}"))),
+  header=shiny::tagList(shiny::tags$link(rel="stylesheet",href="curver/app.css"),shiny::tags$script(src="curver/language.js"),shiny::tags$style(shiny::HTML("body{background:#f3f6f8}.bslib-card{border:0;box-shadow:0 2px 12px #1232}.navbar{border-bottom:3px solid #00284B}.navbar .nav-link{color:#fff!important}.navbar .nav-link.active,.navbar .nav-link[aria-selected=true]{color:#00284B!important;background:#fff!important;border-radius:6px;font-weight:600}.navbar .nav-link:focus-visible{outline:2px solid #fff;outline-offset:3px}.shiny-output-error-validation{color:#9c3c19}.form-control{border-radius:6px}table{font-variant-numeric:tabular-nums}#conditions .shiny-options-group{display:flex;flex-wrap:wrap;gap:8px 18px}#conditions .form-check{margin:0}"))),
   sidebar=bslib::sidebar(title="Votre analyse",width=290,
     shiny::p("Import → Conditions → Fenêtres → Résultats"),
     shiny::textOutput("counts"),shiny::hr(),
@@ -27,11 +27,14 @@ modern_ui <- function() bslib::page_navbar(
         shiny::checkboxInput("use_zoom","Zoom sur la zone sélectionnée",FALSE),
         shiny::checkboxInput("show_negative","Afficher les valeurs corrigées négatives",FALSE)),
       shiny::div(style="height:550px;min-height:550px;flex-shrink:0;",shiny::plotOutput("result_plot",height="550px",fill=FALSE,brush=shiny::brushOpts("zoom",direction="x"))),
-      shiny::div(style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 16px;",
-        shiny::selectInput("format",NULL,c("PNG"="png","PDF"="pdf","SVG"="svg","JPEG"="jpeg","TIFF"="tiff","EPS"="eps","PS"="ps","BMP"="bmp"),selected="png",width="110px"),
-        shiny::downloadButton("figure","Enregistrer le graphique",class="btn-sm"),
-        shiny::tags$details(shiny::tags$summary("Options de l’image"),
-          shiny::numericInput("width","Largeur (cm)",18,min=1,max=100),shiny::numericInput("height","Hauteur (cm)",12,min=1,max=100),shiny::numericInput("dpi","Résolution (dpi)",300,min=72,max=1200))),
+      shiny::div(class="plot-save-panel",
+        shiny::div(class="plot-save-toolbar",
+          shiny::div(class="plot-save-format",shiny::tags$label(class="visually-hidden",`for`="format","Image format"),
+            shiny::selectInput("format",NULL,c("PNG"="png","PDF"="pdf","SVG"="svg","JPEG"="jpeg","TIFF"="tiff","EPS"="eps","PS"="ps","BMP"="bmp"),selected="png",width="110px")),
+          shiny::downloadButton("figure","Enregistrer le graphique",class="btn-sm btn-primary")),
+        shiny::tags$details(class="plot-save-options",shiny::tags$summary("Options de l’image"),
+          shiny::div(class="plot-save-dimensions",
+            shiny::numericInput("width","Largeur (cm)",18,min=1,max=100),shiny::numericInput("height","Hauteur (cm)",12,min=1,max=100),shiny::numericInput("dpi","Résolution (dpi)",300,min=72,max=1200)))),
       shiny::textOutput("negative_note"),
       shiny::tags$details(shiny::tags$summary("Valeurs résumées et qualité de l’ajustement"),
       shiny::div(style="overflow:auto;max-height:420px;",shiny::tableOutput("parameters"))),
@@ -164,7 +167,23 @@ web_section_help <- function(language="en") {
     `Time windows`=c("Choose time points used for fitting and the blank mean.","Select a signal and well, then brush a region or type its limits. Changes are saved automatically within the session. Checking global application immediately copies the current window to all wells/signals; uncheck it for individual edits."),
     Results=c("Fit the four-parameter Richard model and review results.","Run the analysis, then choose the signal, conditions and view: curves, parameter comparison or annotations. Plot options control points, fit, mean, standard deviation and zoom. Expand the tables as needed. Corrected signal is measurement minus the blank mean for that signal. Negative values remain in calculations and exports; enable their display if needed. Save the visible figure using the small button below it."),
     Export=c("Download the two complete Results tables.","Choose CSV, Excel or PDF, then the table: summarized values with fit quality, or complete data. Display pagination does not limit exports. PDF splits rows and columns across pages. Rerun analysis before exporting if conditions or windows have changed."))
-  shiny::tagList(lapply(names(sections),function(name)shiny::tags$section(shiny::h4(name),shiny::p(shiny::strong(if(fr)"À quoi ça sert : " else "Purpose: "),sections[[name]][1]),shiny::p(shiny::strong(if(fr)"Comment l’utiliser : " else "How to use it: "),sections[[name]][2]))),
-    shiny::hr(),shiny::p(if(fr)"La documentation utilisateur détaillée sera complétée ensemble sur GitHub." else "We will expand the detailed user documentation together on GitHub."),
-    shiny::tags$a(href="https://github.com/santinlab-code/CuRveR/blob/feature/modern-web-app/docs/modern-web-app.md",target="_blank",rel="noopener noreferrer",if(fr)"Documentation sur GitHub" else "Documentation on GitHub"))
+  shiny::tags$article(class="help-markdown",
+    shiny::h2(if(fr)"Guide d’utilisation" else "User guide"),
+    shiny::p(class="help-intro",if(fr)"Suivez le parcours de l’import des mesures à l’export des résultats." else "Follow the workflow from importing measurements to exporting results."),
+    shiny::tags$nav(class="help-contents",`aria-label`=if(fr)"Sommaire" else "Contents",
+      lapply(seq_along(sections),function(i)shiny::tags$a(href=paste0("#help-section-",i),names(sections)[i]))),
+    lapply(seq_along(sections),function(i){
+      name<-names(sections)[i]
+      instructions<-strsplit(sections[[i]][2],"(?<=[.!?])\\s+(?=[[:upper:]])",perl=TRUE)[[1]]
+      list_tag<-if(i==2)shiny::tags$ul else shiny::tags$ol
+      shiny::tags$section(id=paste0("help-section-",i),
+        shiny::h3(name),
+        shiny::h4(if(fr)"À quoi ça sert" else "Purpose"),shiny::p(sections[[i]][1]),
+        shiny::h4(if(fr)"Comment l’utiliser" else "How to use it"),
+        list_tag(lapply(instructions,shiny::tags$li)))
+    }),
+    shiny::tags$aside(class="help-documentation",
+      shiny::h3(if(fr)"Pour aller plus loin" else "Further reading"),
+      shiny::p(if(fr)"La documentation utilisateur détaillée sera complétée ensemble sur GitHub." else "We will expand the detailed user documentation together on GitHub."),
+      shiny::tags$a(href="https://github.com/santinlab-code/CuRveR/blob/feature/modern-web-app/docs/modern-web-app.md",target="_blank",rel="noopener noreferrer",if(fr)"Documentation sur GitHub →" else "Documentation on GitHub →")))
 }
