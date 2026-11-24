@@ -1,77 +1,104 @@
 web_import_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(shiny::fileInput(ns("files"),"Importer des fichiers",multiple=TRUE,accept=c(".csv",".tsv",".txt",".xls",".xlsx")),
-    shiny::selectInput(ns("file"),"Fichier à analyser",choices=NULL),shiny::selectInput(ns("od"),"Feuille OD",NULL), shiny::selectInput(ns("mch"),"Feuille signal",NULL),
+    shiny::selectInput(ns("file"),"Fichier à analyser",choices=NULL),
+    shiny::conditionalPanel("output.excel === 'true'",ns=ns,
+      shiny::selectInput(ns("od"),"Feuille OD",NULL),
+      shiny::selectInput(ns("mch"),"Feuille de signal facultative",choices=c("Aucun"=""),selectize=FALSE)),
     shiny::selectInput(ns("time"),"Colonne temps",choices=NULL),
     shiny::helpText("Les puits sont détectés automatiquement, sans les colonnes de température. Les temps Excel sont exprimés en minutes écoulées depuis la première mesure de chaque feuille."),
-    shiny::actionButton(ns("pair"),"Importer OD + signal",class="btn-primary"),
+    shiny::actionButton(ns("pair"),"Importer les données",class="btn-primary"),
     shiny::actionButton(ns("reset"),"Nouvelle analyse"),shiny::textOutput(ns("status")),
-    shiny::radioButtons(ns("preview_signal"),"Afficher dans le tableau",choices=c("OD600"="od","Signal"="mch"),selected="od",inline=TRUE),shiny::tableOutput(ns("preview")))
+    shiny::conditionalPanel("output.excel === 'true' && input.mch && input.mch !== input.od",ns=ns,
+      shiny::radioButtons(ns("preview_signal"),"Afficher dans le tableau",choices=c("OD600"="od","Signal"="mch"),selected="od",inline=TRUE)),
+    shiny::tableOutput(ns("preview")))
 }
 web_import_server <- function(id) shiny::moduleServer(id,function(input,output,session) {
   data <- shiny::reactiveVal(NULL)
   shiny::observeEvent(input$files, {
     shiny::updateSelectInput(session,"file",choices=stats::setNames(seq_len(nrow(input$files)),input$files$name))
   })
-  shiny::observeEvent(input$file, {
+  file <- shiny::reactive({
     shiny::req(input$files,input$file)
-    f <- input$files[as.integer(input$file),]
-    sheets <- tryCatch(if (tolower(tools::file_ext(f$name)) %in% c("xls","xlsx")) readxl::excel_sheets(f$datapath) else character(),error=function(e) character())
-    shiny::updateSelectInput(session,"od",choices=sheets,selected=if("OD600" %in% sheets) "OD600" else sheets[1])
-    shiny::updateSelectInput(session,"mch",choices=sheets,selected=if("mCh signal" %in% sheets) "mCh signal" else tail(sheets,1))
+    index <- as.integer(input$file)
+    shiny::req(index %in% seq_len(nrow(input$files)))
+    input$files[index,]
+  })
+  extension <- shiny::reactive(tolower(tools::file_ext(file()$name)))
+  excel <- shiny::reactive(extension() %in% c("xls","xlsx"))
+  output$excel <- shiny::renderText(if (shiny::isTruthy(input$file) && excel()) "true" else "false")
+  shiny::outputOptions(output,"excel",suspendWhenHidden=FALSE)
+  sheets <- shiny::reactive({
+    if (excel()) readxl::excel_sheets(file()$datapath) else character()
+  })
+  shiny::observeEvent(file(), {
+    available <- tryCatch(sheets(),error=function(e) character())
+    shiny::updateSelectInput(session,"od",choices=available,
+      selected=if ("OD600" %in% available) "OD600" else head(available,1))
+    shiny::updateSelectInput(session,"mch",choices=c("Aucun"="",available),selected="")
   })
   raw <- shiny::reactive({
-    shiny::req(input$files,input$file)
-    f <- input$files[as.integer(input$file),]
-    ext <- tolower(tools::file_ext(f$name))
+    f <- file()
+    ext <- extension()
     shiny::validate(shiny::need(ext %in% c("csv","tsv","txt","xls","xlsx"),"Format non pris en charge."))
-    tryCatch({
-      d <- if (ext %in% c("xls","xlsx")) {
-        shiny::req(input$od); readxl::read_excel(f$datapath,sheet=input$od)
+    d <- tryCatch({
+      if (excel()) {
+        shiny::req(input$od %in% sheets())
+        readxl::read_excel(f$datapath,sheet=input$od)
       } else if (ext=="csv") readr::read_csv(f$datapath,show_col_types=FALSE) else
         readr::read_delim(f$datapath,delim=if(ext=="tsv") "\t" else NULL,show_col_types=FALSE)
-      shiny::validate(shiny::need(nrow(d)>0 && ncol(d)>1,"Fichier vide ou séparateur incorrect.")); d
-    },error=function(e) shiny::validate(shiny::need(FALSE,paste("Lecture impossible :",conditionMessage(e)))))
+    },shiny.silent.error=function(e) stop(e),
+      error=function(e) shiny::validate(shiny::need(FALSE,paste("Lecture impossible :",conditionMessage(e)))))
+    shiny::validate(shiny::need(nrow(d)>0 && ncol(d)>1,"Fichier vide ou séparateur incorrect."))
+    d
   })
+  secondary_sheet <- shiny::reactive({
+    sheet <- input$mch %||% ""
+    if (excel() && nzchar(sheet)) sheet else NULL
+  })
+  signal_raw <- shiny::reactive(readxl::read_excel(file()$datapath,sheet=secondary_sheet()))
+  elapsed_time <- function(d,time) {
+    if (inherits(d[[time]],c("POSIXt","Date")))
+      d[[time]] <- as.numeric(difftime(d[[time]],d[[time]][1],units="mins"))
+    d
+  }
+  well_columns <- function(d) names(d)[grepl("^[A-Za-z][0-9]+$",names(d))]
   shiny::observeEvent(raw(),{
     columns <- names(raw())
     shiny::updateSelectInput(session,"time",choices=columns,selected=columns[1])
   })
   output$preview <- shiny::renderTable({
     d <- raw(); shiny::req(input$time)
-    if (identical(input$preview_signal,"mch")) {
-      shiny::req(input$files,input$file,input$mch)
-      f <- input$files[as.integer(input$file),]
-      if(tolower(tools::file_ext(f$name)) %in% c("xls","xlsx"))
-        d <- readxl::read_excel(f$datapath,sheet=input$mch)
-    }
+    sheet <- secondary_sheet()
+    if (identical(input$preview_signal,"mch") && !is.null(sheet) && sheet %in% sheets() && sheet != input$od)
+      d <- signal_raw()
     shiny::validate(shiny::need(input$time %in% names(d),"Colonne temps absente de cette feuille."))
-    if (input$time %in% names(d) && inherits(d[[input$time]],c("POSIXt","Date")))
-      d[[input$time]] <- as.numeric(difftime(d[[input$time]],d[[input$time]][1],units="mins"))
-    utils::head(d[c(input$time,names(d)[grepl("^[A-Za-z][0-9]+$",names(d))])],8)
+    d <- elapsed_time(d,input$time)
+    utils::head(d[c(input$time,well_columns(d))],8)
   }, digits=3)
   shiny::observeEvent(input$pair,{
     tryCatch({
-      shiny::req(input$files,input$file,input$time)
-      f<-input$files[as.integer(input$file),]
-      excel<-tolower(tools::file_ext(f$name)) %in% c("xls","xlsx")
-      if(excel) shiny::req(input$od,input$mch)
-      if(excel && input$od==input$mch) stop("Choisissez deux feuilles distinctes.")
-      f<-input$files[as.integer(input$file),]
-      signals<-lapply(if(excel) c(input$od,input$mch) else f$name,function(sheet){
-        d<-if(excel) readxl::read_excel(f$datapath,sheet=sheet) else raw()
-        if(!input$time %in% names(d)) stop(paste("Colonne temps absente :",sheet))
-        if(inherits(d[[input$time]],c("POSIXt","Date")))
-          d[[input$time]]<-as.numeric(difftime(d[[input$time]],d[[input$time]][1],units="mins"))
-        wells<-names(d)[grepl("^[A-Za-z][0-9]+$",names(d))]
-        web_prepare(d,input$time,wells,sheet)
-      })
-      combined <- dplyr::bind_rows(signals)
-      attr(combined,"od_signal") <- if(excel) input$od else f$name
-      attr(combined,"fluorescence_signal") <- if(excel) input$mch else NULL
+      shiny::req(input$time)
+      od <- raw()
+      od_name <- if (excel()) input$od else file()$name
+      sheet <- secondary_sheet()
+      prepare <- function(d,signal) {
+        if (!input$time %in% names(d)) stop(paste("Colonne temps absente :",signal))
+        web_prepare(elapsed_time(d,input$time),input$time,well_columns(d),signal)
+      }
+      combined <- prepare(od,od_name)
+      if (!is.null(sheet)) {
+        if (sheet == od_name) stop("Choisissez deux feuilles distinctes.")
+        combined <- dplyr::bind_rows(combined,prepare(signal_raw(),sheet))
+      }
+      attr(combined,"od_signal") <- od_name
+      attr(combined,"fluorescence_signal") <- sheet
       data(combined)
-      shiny::showNotification("OD et signal importés. Vous pouvez définir les conditions.")
-    },error=function(e)shiny::showNotification(conditionMessage(e),type="error",duration=NULL))
+      shiny::showNotification(if (is.null(sheet)) "OD importée. Vous pouvez définir les conditions."
+        else "OD et signal importés. Vous pouvez définir les conditions.")
+    },validation=function(e) shiny::showNotification(conditionMessage(e),type="error",duration=NULL),
+      shiny.silent.error=function(e) NULL,
+      error=function(e) shiny::showNotification(conditionMessage(e),type="error",duration=NULL))
   })
   shiny::observeEvent(input$reset,data(NULL))
   output$status <- shiny::renderText(if(is.null(data())) "Aucun signal ajouté." else paste(length(unique(data()$signal)),"signal(s),",length(unique(data()$well)),"puits."))
@@ -81,7 +108,11 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
 web_conditions_ui <- function(id) {
   ns <- shiny::NS(id)
   bslib::layout_columns(col_widths=c(3,9),
-    bslib::card(shiny::selectInput(ns("global_blank"),"Groupe blanc commun",choices=c("Aucun"="")),shiny::helpText("Soustrait à toutes les conditions, séparément pour chaque signal. Le triplet blanc est exclu des ajustements.")),
+    bslib::card(
+      shiny::numericInput(ns("replicate_count"),"Nombre de réplicats techniques",value=3,min=1,step=1),
+      shiny::helpText("Changer ce nombre recrée les groupes par ligne et conserve le groupe blanc sélectionné."),
+      shiny::selectInput(ns("global_blank"),"Groupe blanc commun",choices=c("Aucun"="")),
+      shiny::helpText("Le groupe blanc est exclu des ajustements. Sa moyenne est soustraite à chaque condition pour chaque signal.")),
     shiny::tagList(shiny::selectInput(ns("selected"),"Condition",NULL),shiny::textInput(ns("name"),"Nom",""),
     shiny::selectizeInput(ns("reps"),"Réplicats",NULL,multiple=TRUE),
     shiny::helpText("Renommez le groupe et ajustez ses puits, puis enregistrez. Un puits ajouté est déplacé depuis son ancien groupe."),
@@ -93,15 +124,35 @@ web_conditions_server <- function(id,data) shiny::moduleServer(id,function(input
   conditions <- shiny::reactiveVal(list())
   blank_name <- shiny::reactiveVal("")
   selection <- shiny::reactiveVal("")
+  replicate_count <- shiny::reactiveVal(3L)
   effective <- shiny::reactive({
     blank <- conditions()[[blank_name()]]
     web_apply_global_blank(conditions(),blank$replicates %||% character())
   })
+  replace_groups <- function(groups,blank="") {
+    selection(if (length(groups)) names(groups)[1] else "")
+    blank_name(blank)
+    conditions(groups)
+  }
   shiny::observeEvent(data(),{
-    groups<-web_triplet_conditions(unique(data()$well))
-    blank_name("");selection(if(length(groups))names(groups)[1] else "");conditions(groups)
-    shiny::updateSelectizeInput(session,"reps",choices=unique(data()$well))
-  },ignoreNULL=FALSE)
+    wells <- unique(data()$well)
+    replace_groups(web_default_conditions(wells,replicate_count()))
+    shiny::updateSelectizeInput(session,"reps",choices=wells)
+  },ignoreNULL=FALSE,priority=1)
+  shiny::observeEvent(input$replicate_count,{
+    count <- input$replicate_count
+    if (!is.finite(count) || count < 1 || count != floor(count) || count == replicate_count()) return()
+    replicate_count(count)
+    blank <- blank_name()
+    blank_group <- conditions()[[blank]]
+    wells <- setdiff(unique(data()$well),blank_group$replicates)
+    groups <- web_default_conditions(wells,count)
+    if (!is.null(blank_group)) {
+      names(groups) <- make.unique(c(blank,names(groups)),sep=" ")[-1L]
+      groups[[blank]] <- blank_group
+    }
+    replace_groups(groups,blank)
+  })
   shiny::observeEvent(list(conditions(),blank_name()),{
     names<-names(conditions())
     selected<-shiny::isolate(selection())

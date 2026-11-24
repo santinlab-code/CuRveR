@@ -12,9 +12,9 @@ CuRveR::run_curver()
 CuRveR::run_curver(legacy = TRUE)
 ```
 
-L’interface s’ouvre dans le navigateur ; les calculs restent en R local. Le serveur ne nécessite ni compte ni API. CSV : virgule comme séparateur et point décimal ; TSV : tabulation. Pour Excel, choisir une feuille. Ajouter chaque signal explicitement ; les fichiers multiples peuvent alimenter plusieurs signaux. Temps et mesures doivent être numériques, finis, et le temps trié. Les temps Excel sont convertis en minutes écoulées depuis la première mesure de chaque feuille (les taux sont donc exprimés par minute). Les temps numériques CSV gardent leur unité d’origine.
+L’interface s’ouvre dans le navigateur ; les calculs restent en R local. Le serveur ne nécessite ni compte ni API. CSV : virgule comme séparateur et point décimal ; TSV : tabulation. Pour Excel, choisir la feuille OD et laisser la feuille de signal facultative sur « Aucun » pour analyser l’OD seule. Pour analyser les deux signaux, sélectionner une seconde feuille du même fichier. Temps et mesures doivent être numériques, finis, et le temps trié. Les temps Excel sont convertis en minutes écoulées depuis la première mesure de chaque feuille (les taux sont donc exprimés par minute). Les temps numériques CSV gardent leur unité d’origine.
 
-Les conditions définissent des réplicats et des blancs ; elles peuvent être importées/exportées en YAML. Ajouter un signal réinitialise les conditions et fenêtres : préparer tous les signaux avant ces étapes. Les fenêtres se règlent par puits/signal ou globalement. Un ajustement demande au moins cinq temps distincts et un signal non constant. Les figures disposent de vues courbes, paramètres et annotations ; le zoom se fait par sélection puis activation du zoom. Les tableaux complets sont téléchargeables.
+Les conditions définissent des réplicats et des blancs ; elles peuvent être importées/exportées en YAML. Un nouvel import de mesures réinitialise les conditions et les fenêtres. Les fenêtres se règlent par puits/signal ou globalement. Un ajustement demande au moins cinq temps distincts et un signal non constant. Les figures disposent de vues courbes, paramètres et annotations ; le zoom se fait par sélection puis activation du zoom. Les tableaux complets sont téléchargeables.
 
 ## Architecture et fidélité scientifique
 
@@ -56,7 +56,7 @@ Les versions des dépendances ne sont pas encore verrouillées pour toutes les p
 
 ## Axes de l’aperçu
 
-L’OD (noir, gauche) et le signal (rouge, droite) utilisent une transformation affine par puits : minimum OD aligné sur minimum signal et maximum OD aligné sur maximum signal. Chaque graphique affiche ses propres axes gradués ; les plages diffèrent entre puits. Les axes affichent les unités réelles ; les données et les calculs ne sont pas transformés. Les croisements dépendent de ces échelles d’affichage et ne constituent pas une égalité de mesures entre OD et fluorescence. Les séries constantes utilisent une plage élargie pour garder une transformation inversible.
+L’OD seule s’affiche en noir sur un axe unique. En présence d’un second signal, l’OD (noir, gauche) et le signal (rouge, droite) utilisent une transformation affine par puits : minimum OD aligné sur minimum signal et maximum OD aligné sur maximum signal. Chaque graphique affiche ses propres axes gradués ; les plages diffèrent entre puits. Les axes affichent les unités réelles ; les données et les calculs ne sont pas transformés. Les croisements dépendent de ces échelles d’affichage et ne constituent pas une égalité de mesures entre OD et fluorescence. Les séries constantes utilisent une plage élargie pour garder une transformation inversible.
 
 ## Interface simplifiée
 
@@ -64,11 +64,11 @@ La couleur principale est RGB(0, 40, 75), soit #00284B. La barre latérale ne co
 
 ## Conditions techniques par défaut
 
-Après import, les puits sont pré-affectés par triplets de colonnes au sein de chaque ligne : A1–A3, A4–A6, A7–A9, A10–A12, puis B1–B3, etc. Les groupes restent modifiables et renommables. Les puits manquants créent un groupe partiel sans décaler les triplets suivants. Aucun blanc biologique n’est deviné ; il faut vérifier les affectations avant analyse. Le champ de nom d’une nouvelle condition est vide.
+Après import, les puits sont regroupés par colonnes adjacentes dans chaque ligne. Le nombre de réplicats techniques est de trois par défaut. Dans Conditions, le régler à quatre, cinq, six ou à un autre entier positif recrée les groupes, tout en conservant le groupe blanc sélectionné et ses puits. Régler ce nombre avant de renommer ou de modifier les groupes. Les puits manquants laissent des groupes partiels aux mêmes positions. Le champ de nom d’une nouvelle condition est vide.
 
 ## Blanc commun
 
-Dans Conditions, sélectionner une seule fois le triplet blanc dans le panneau latéral. Ce groupe est exclu des conditions à ajuster ; ses puits sont affectés comme blancs à toutes les conditions restantes. Le choix « Aucun » conserve les mesures sans correction. Le blanc reste dans la liste des groupes éditables, mais ne devient jamais une condition à ajuster. Son nom et ses puits suivent les modifications enregistrées. Les groupes incomplets restent sélectionnables si la plaque n’inclut pas leurs trois puits.
+Dans Conditions, sélectionner le groupe blanc commun dans le panneau latéral. Ce groupe est exclu des ajustements et ses puits servent de blancs à toutes les autres conditions. Le choix « Aucun » conserve les mesures brutes. Le blanc reste dans la liste des groupes éditables. Son nom et ses puits suivent les modifications enregistrées. Les groupes partiels restent sélectionnables.
 
 La correction conserve le calcul historique : pour chaque signal (OD et fluorescence séparément), soustraction de la moyenne des mesures des puits blancs dans leurs fenêtres sélectionnées. Il s’agit d’une moyenne globale dans ces fenêtres, pas d’une soustraction point par point dans le temps. Les fenêtres affichent les données corrigées ; l’analyse repart des mesures brutes et applique la correction une seule fois. Les données ajustées et exportées sont corrigées. Import et Aperçu restent des vues des mesures brutes. Modifier le choix du blanc invalide les anciens résultats et nécessite de relancer l’analyse.
 

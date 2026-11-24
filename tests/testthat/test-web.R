@@ -82,6 +82,51 @@ test_that("language defaults to English and signal labels are generic", {
   expect_false(grepl("Feuille signal \\(mCh\\)",ui))
 })
 
+test_that("Excel OD can be imported and fitted without a second sheet", {
+  od_file <- tempfile(fileext=".xlsx")
+  paired_file <- tempfile(fileext=".xlsx")
+  on.exit(unlink(c(od_file,paired_file)),add=TRUE)
+  time <- 0:24
+  curve <- .1+.9/(1+exp(-.5*(time-12)))
+  od <- data.frame(Time=as.POSIXct("2025-01-01",tz="UTC")+60*time,A1=curve+.05,B1=.05)
+  signal <- transform(od,A1=A1*1000,B1=B1*1000)
+  openxlsx::write.xlsx(list(OD600=od),od_file)
+  openxlsx::write.xlsx(list(OD600=od,Fluorescence=signal),paired_file)
+  upload <- function(path) data.frame(name="plate.xlsx",datapath=path)
+
+  shiny::testServer(CuRveR:::web_import_server,{
+    session$setInputs(files=upload(od_file),file="1",od="OD600",mch="",time="Time",preview_signal="mch",pair=1)
+    expect_match(output$preview,"A1")
+    imported <- data()
+    expect_equal(unique(imported$signal),"OD600")
+    expect_equal(unique(imported$Time),time,tolerance=1e-7)
+    expect_equal(attr(imported,"od_signal"),"OD600")
+    expect_null(attr(imported,"fluorescence_signal"))
+    plot <- CuRveR:::web_overview_panels(imported)[["A1"]]
+    expect_length(ggplot2::ggplot_build(plot)$data,1L)
+
+    groups <- CuRveR:::web_default_conditions(unique(imported$well))
+    conditions <- CuRveR:::web_apply_global_blank(groups,"B1")
+    windows <- unique(imported[c("signal","well")])
+    windows$left <- min(imported$Time)
+    windows$right <- max(imported$Time)
+    result <- CuRveR:::web_analyze(imported,conditions,windows)
+    expect_equal(unique(result$data$signal),"OD600")
+    expect_equal(unique(result$data$well),"A1")
+    expect_equal(result$data$value,curve)
+    expect_true(all(is.finite(result$data$fit)))
+
+    session$setInputs(files=upload(paired_file),pair=2)
+    expect_equal(data(),imported)
+    session$setInputs(mch="Fluorescence",pair=3)
+    expect_equal(unique(data()$signal),c("OD600","Fluorescence"))
+    expect_equal(attr(data(),"fluorescence_signal"),"Fluorescence")
+    paired <- data()
+    session$setInputs(mch="OD600",pair=4)
+    expect_equal(data(),paired)
+  })
+})
+
 test_that("overview aligns nonzero minima and maxima with an invertible axis", {
   d<-data.frame(Time=rep(0:2,2),well="A1",signal=rep(c("OD","mCh"),each=3),value=c(.2,.4,.6,1000,3000,5000))
   attr(d,"od_signal")<-"OD";attr(d,"fluorescence_signal")<-"mCh"
@@ -108,18 +153,49 @@ test_that("each well independently aligns both axis endpoints", {
 })
 
 test_that("technical triplets follow physical rows and columns", {
-  groups<-CuRveR:::web_triplet_conditions(c(paste0("A",12:1),"B1","B3","B4"))
+  groups<-CuRveR:::web_default_conditions(c(paste0("A",12:1),"B1","B3","B4"))
   expect_equal(groups[["A1-A3"]]$replicates,paste0("A",1:3))
   expect_equal(groups[["A10-A12"]]$replicates,paste0("A",10:12))
   expect_equal(groups[["B1-B3"]]$replicates,c("B1","B3"))
   expect_equal(groups[["B4"]]$replicates,"B4")
   expect_true(all(vapply(groups,function(g)length(g$blanks)==0,logical(1))))
-  expect_equal(CuRveR:::web_triplet_conditions(NULL),list())
+  expect_equal(CuRveR:::web_default_conditions(NULL),list())
   expect_false(grepl('value="Témoin"',as.character(CuRveR:::web_conditions_ui('c'))))
 })
 
+test_that("replicate counts regroup wells while retaining the manually selected blank", {
+  wells <- c(paste0("A",12:1),"B1","B3","B4","B7")
+  plate <- shiny::reactiveVal(data.frame(well=wells))
+  shiny::testServer(CuRveR:::web_conditions_server,args=list(data=plate),{
+    session$flushReact()
+    expect_equal(conditions()[["A1-A3"]]$replicates,paste0("A",1:3))
+    session$setInputs(selected="B1-B3",global_blank="B1-B3")
+    session$setInputs(name="Medium",reps=c("B1","B3"),save=1)
+
+    for (count in 4:6) {
+      session$setInputs(replicate_count=count)
+      expect_equal(conditions()[[paste0("A1-A",count)]]$replicates,paste0("A",seq_len(count)))
+      expect_equal(conditions()[["B4"]]$replicates,"B4")
+      expect_equal(conditions()[["B7"]]$replicates,"B7")
+      expect_equal(blank_name(),"Medium")
+      expect_false("Medium" %in% names(effective()))
+      expect_equal(attr(effective(),"global_blank"),c("B1","B3"))
+    }
+    session$setInputs(selected="A1-A6",name="Treatment",reps=paste0("A",c(1:5,7)),save=2)
+    expect_equal(conditions()$Treatment$replicates,paste0("A",c(1:5,7)))
+    expect_equal(conditions()[["A7-A12"]]$replicates,paste0("A",8:12))
+    session$setInputs(replicate_count=2.5)
+    expect_true("Treatment" %in% names(conditions()))
+
+    plate(data.frame(well=paste0("C",1:7)))
+    session$flushReact()
+    expect_equal(names(conditions()),c("C1-C6","C7"))
+    expect_equal(blank_name(),"")
+  })
+})
+
 test_that("one global blank is applied to all conditions and excluded from fitting", {
-  groups<-CuRveR:::web_triplet_conditions(c(paste0("A",1:9)))
+  groups<-CuRveR:::web_default_conditions(c(paste0("A",1:9)))
   common<-CuRveR:::web_apply_global_blank(groups,paste0("A",7:9))
   expect_equal(names(common),c("A1-A3","A4-A6"))
   expect_true(all(vapply(common,function(x)identical(x$blanks,paste0("A",7:9)),logical(1))))
@@ -143,7 +219,7 @@ test_that("one global blank is applied to all conditions and excluded from fitti
 })
 
 test_that("renaming and editing any group preserves the common blank identity", {
-  wells<-paste0("A",1:9);groups<-CuRveR:::web_triplet_conditions(wells)
+  wells<-paste0("A",1:9);groups<-CuRveR:::web_default_conditions(wells)
   edit<-CuRveR:::web_edit_group(groups,"A7-A9","Medium",paste0("A",7:9),"A7-A9",wells)
   expect_equal(edit$blank,"Medium")
   expect_true("Medium" %in% names(edit$groups))

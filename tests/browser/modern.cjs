@@ -2,13 +2,14 @@ const {chromium}=require('playwright');
 const fs=require('fs'),os=require('os'),path=require('path');
 const directory=fs.mkdtempSync(path.join(os.tmpdir(),'curver-'));
 const source=path.join(directory,'input.csv');
-let rows=['Time,A1,A2,B1'];for(let i=0;i<49;i++){let t=i/2,y=.1+.9/(1+Math.exp(-.5*(t-12)));rows.push([t,y,y+.01,.05].join(','))}fs.writeFileSync(source,rows.join('\n'));
+let rows=['Time,A1,A2,A3,A4,A5,A6,B1'];for(let i=0;i<49;i++){let t=i/2,y=.1+.9/(1+Math.exp(-.5*(t-12)));rows.push([t,y,y+.01,y+.02,y+.03,y+.04,y+.05,.05].join(','))}fs.writeFileSync(source,rows.join('\n'));
 
 (async()=>{const b=await chromium.launch({...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}),headless:true,args:['--no-sandbox']});const page=await b.newPage({viewport:{width:1440,height:1000}});let errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.goto('http://127.0.0.1:3839');await page.waitForFunction(()=>window.Shiny?.shinyapp?.$socket?.readyState===1);
 await page.waitForTimeout(1500);await page.locator('#import-files').setInputFiles(source);
 await page.waitForFunction(()=>document.querySelector('#import-time')?.options.length>0);
 await page.waitForTimeout(1500);await page.locator('#import-pair').click();await page.waitForFunction(()=>document.querySelector('#import-status').innerText.includes('1 signal'));
+if(await page.locator('#import-mch').isVisible())throw Error('CSV import shows a second sheet selector');
 console.log('import:',await page.locator('#import-status').innerText());
 await page.locator('.navbar a[data-value="Aperçu"]').click();
 await page.locator('#overview img').waitFor();
@@ -50,14 +51,23 @@ await page.setViewportSize({width:800,height:650});await page.waitForTimeout(500
 if((await page.locator('#windows-plot').boundingBox()).height<450)throw Error('Window plot compressed on small screen');
 await page.setViewportSize({width:1440,height:1000});
 await page.locator('.navbar a[data-value="Conditions"]').click();
+if(await page.locator('#conditions-replicate_count').inputValue()!=='3')throw Error('Expected three replicates by default');
+await page.waitForFunction(()=>document.querySelector('#conditions-summary').innerText.includes('A1-A3'));
 await page.evaluate(()=>document.querySelector('#conditions-global_blank').selectize.setValue('B1'));await page.waitForTimeout(300);
 await page.evaluate(()=>document.querySelector('#conditions-selected').selectize.setValue('B1'));
 await page.waitForTimeout(300);await page.locator('#conditions-name').fill('Medium');await page.locator('#conditions-save').click();
 await page.waitForFunction(()=>document.querySelector('#conditions-global_blank').value==='Medium');
-await page.evaluate(()=>document.querySelector('#conditions-selected').selectize.setValue('A1-A2'));await page.waitForTimeout(300);
+for(const count of [4,5,6]){
+ await page.locator('#conditions-replicate_count').fill(String(count));
+ await page.waitForFunction(size=>document.querySelector('#conditions-summary').innerText.includes(`A1-A${size}`),count);
+ if(await page.locator('#conditions-global_blank').inputValue()!=='Medium')throw Error('Regrouping changed the shared blank');
+}
+await page.evaluate(()=>document.querySelector('#conditions-selected').selectize.setValue('A1-A6'));
+await page.waitForFunction(()=>document.querySelector('#conditions-name').value==='A1-A6');
 await page.locator('#conditions-name').fill('Control');
-await page.evaluate(()=>{const s=document.querySelector('#conditions-reps').selectize;s.setValue(['A1','A2'])});
-await page.locator('#conditions-save').click();await page.waitForTimeout(600);
+await page.evaluate(()=>{const s=document.querySelector('#conditions-reps').selectize;s.setValue(['A1','A2','A3','A4','A5'])});
+await page.locator('#conditions-save').click();
+await page.waitForFunction(()=>document.querySelector('#conditions-summary').innerText.includes('Control'));
 console.log('conditions:',await page.locator('#conditions-summary').innerText());
 await page.locator('.navbar a[data-value="Résultats"]').click();
 await page.locator('#run').click();await page.waitForFunction(()=>/terminée|complete/.test(document.querySelector('#status').innerText),null,{timeout:30000});
@@ -76,7 +86,7 @@ console.log('status:',await page.locator('#status').innerText());console.log('er
 const imageDownload=page.waitForEvent('download');await page.locator('#figure').click();const image=await imageDownload;await image.saveAs(path.join(directory,'current.png'));
 if(fs.readFileSync(path.join(directory,'current.png')).subarray(1,4).toString()!=='PNG')throw Error('Invalid plot image');
 await page.locator('.navbar a[data-value="Export"]').click();
-const dl=page.waitForEvent('download');await page.locator('#csv').click();const file=await dl;console.log('download:',file.suggestedFilename());await file.saveAs(path.join(directory,'results.csv'));if(fs.readFileSync(path.join(directory,'results.csv'),'utf8').trim().split('\n').length!==99)throw Error('Expected 98 fitted rows');
+const dl=page.waitForEvent('download');await page.locator('#csv').click();const file=await dl;console.log('download:',file.suggestedFilename());await file.saveAs(path.join(directory,'results.csv'));if(fs.readFileSync(path.join(directory,'results.csv'),'utf8').trim().split('\n').length!==246)throw Error('Expected 245 fitted rows from the five edited replicates');
 for(const format of ['xlsx','pdf'])for(const table of ['params','csv']){
  await page.evaluate(f=>document.querySelector('#table_format').selectize.setValue(f),format);await page.waitForTimeout(300);
  const pending=page.waitForEvent('download');await page.locator('#'+table).click();const downloaded=await pending;
@@ -87,6 +97,7 @@ for(const format of ['xlsx','pdf'])for(const table of ['params','csv']){
 }
 if(await page.locator('#quality,#settings').count())throw Error('Obsolete exports');
 await page.locator('.navbar a[data-value="Aide"]').click();
+await page.locator('#section_help section').first().waitFor();
 if(await page.locator('#section_help section').count()!==6)throw Error('Incomplete help');
 if(!await page.locator('.navbar-brand').innerText().then(t=>t.includes('CuRveR 2.0')))throw Error('Missing 2.0 branding');
 await page.screenshot({path:path.join(directory,'app.png'),fullPage:true});await b.close();if(errors.length)process.exitCode=1;
