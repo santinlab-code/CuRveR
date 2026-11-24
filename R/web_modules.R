@@ -105,11 +105,14 @@ web_import_server <- function(id) shiny::moduleServer(id,function(input,output,s
   data
 })
 
+web_replicate_counts <- c(3L,4L,6L)
+
 web_conditions_ui <- function(id) {
   ns <- shiny::NS(id)
   bslib::layout_columns(col_widths=c(3,9),
     bslib::card(
-      shiny::numericInput(ns("replicate_count"),"Nombre de réplicats techniques",value=3,min=1,step=1),
+      shiny::radioButtons(ns("replicate_count"),"Nombre de réplicats techniques",
+        choices=web_replicate_counts,selected=3,inline=TRUE),
       shiny::helpText("Changer ce nombre recrée les groupes par ligne et conserve le groupe blanc sélectionné."),
       shiny::selectInput(ns("global_blank"),"Groupe blanc commun",choices=c("Aucun"="")),
       shiny::helpText("Le groupe blanc est exclu des ajustements. Sa moyenne est soustraite à chaque condition pour chaque signal.")),
@@ -140,8 +143,9 @@ web_conditions_server <- function(id,data) shiny::moduleServer(id,function(input
     shiny::updateSelectizeInput(session,"reps",choices=wells)
   },ignoreNULL=FALSE,priority=1)
   shiny::observeEvent(input$replicate_count,{
-    count <- input$replicate_count
-    if (!is.finite(count) || count < 1 || count != floor(count) || count == replicate_count()) return()
+    if (!input$replicate_count %in% web_replicate_counts) return()
+    count <- as.integer(input$replicate_count)
+    if (count == replicate_count()) return()
     replicate_count(count)
     blank <- blank_name()
     blank_group <- conditions()[[blank]]

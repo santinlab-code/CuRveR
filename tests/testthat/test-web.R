@@ -172,8 +172,8 @@ test_that("replicate counts regroup wells while retaining the manually selected 
     session$setInputs(selected="B1-B3",global_blank="B1-B3")
     session$setInputs(name="Medium",reps=c("B1","B3"),save=1)
 
-    for (count in 4:6) {
-      session$setInputs(replicate_count=count)
+    for (count in c(4L,3L,6L)) {
+      session$setInputs(replicate_count=as.character(count))
       expect_equal(conditions()[[paste0("A1-A",count)]]$replicates,paste0("A",seq_len(count)))
       expect_equal(conditions()[["B4"]]$replicates,"B4")
       expect_equal(conditions()[["B7"]]$replicates,"B7")
@@ -184,7 +184,7 @@ test_that("replicate counts regroup wells while retaining the manually selected 
     session$setInputs(selected="A1-A6",name="Treatment",reps=paste0("A",c(1:5,7)),save=2)
     expect_equal(conditions()$Treatment$replicates,paste0("A",c(1:5,7)))
     expect_equal(conditions()[["A7-A12"]]$replicates,paste0("A",8:12))
-    session$setInputs(replicate_count=2.5)
+    session$setInputs(replicate_count="5")
     expect_true("Treatment" %in% names(conditions()))
 
     plate(data.frame(well=paste0("C",1:7)))

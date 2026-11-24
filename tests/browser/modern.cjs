@@ -51,14 +51,17 @@ await page.setViewportSize({width:800,height:650});await page.waitForTimeout(500
 if((await page.locator('#windows-plot').boundingBox()).height<450)throw Error('Window plot compressed on small screen');
 await page.setViewportSize({width:1440,height:1000});
 await page.locator('.navbar a[data-value="Conditions"]').click();
-if(await page.locator('#conditions-replicate_count').inputValue()!=='3')throw Error('Expected three replicates by default');
+const replicateCount=page.locator('#conditions-replicate_count');
+const replicateChoices=await replicateCount.getByRole('radio').evaluateAll(inputs=>inputs.map(input=>input.value));
+if(replicateChoices.join(',')!=='3,4,6')throw Error('Expected replicate choices 3, 4 and 6');
+if(!await replicateCount.getByRole('radio',{name:'3',exact:true}).isChecked())throw Error('Expected three replicates by default');
 await page.waitForFunction(()=>document.querySelector('#conditions-summary').innerText.includes('A1-A3'));
 await page.evaluate(()=>document.querySelector('#conditions-global_blank').selectize.setValue('B1'));await page.waitForTimeout(300);
 await page.evaluate(()=>document.querySelector('#conditions-selected').selectize.setValue('B1'));
 await page.waitForTimeout(300);await page.locator('#conditions-name').fill('Medium');await page.locator('#conditions-save').click();
 await page.waitForFunction(()=>document.querySelector('#conditions-global_blank').value==='Medium');
-for(const count of [4,5,6]){
- await page.locator('#conditions-replicate_count').fill(String(count));
+for(const count of [4,3,6]){
+ await replicateCount.getByRole('radio',{name:String(count),exact:true}).check();
  await page.waitForFunction(size=>document.querySelector('#conditions-summary').innerText.includes(`A1-A${size}`),count);
  if(await page.locator('#conditions-global_blank').inputValue()!=='Medium')throw Error('Regrouping changed the shared blank');
 }

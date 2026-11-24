@@ -64,7 +64,7 @@ La couleur principale est RGB(0, 40, 75), soit #00284B. La barre latérale ne co
 
 ## Conditions techniques par défaut
 
-Après import, les puits sont regroupés par colonnes adjacentes dans chaque ligne. Le nombre de réplicats techniques est de trois par défaut. Dans Conditions, le régler à quatre, cinq, six ou à un autre entier positif recrée les groupes, tout en conservant le groupe blanc sélectionné et ses puits. Régler ce nombre avant de renommer ou de modifier les groupes. Les puits manquants laissent des groupes partiels aux mêmes positions. Le champ de nom d’une nouvelle condition est vide.
+Après import, les puits sont regroupés par colonnes adjacentes dans chaque ligne. Dans Conditions, choisir 3, 4 ou 6 réplicats techniques génère automatiquement les groupes de la taille choisie. Le choix par défaut est 3. Changer ce choix recrée les groupes et conserve le groupe blanc sélectionné et ses puits. Régler ce nombre avant de renommer ou de modifier les groupes. Les puits manquants laissent des groupes partiels aux mêmes positions. Le champ de nom d’une nouvelle condition est vide.
 
 ## Blanc commun
 
