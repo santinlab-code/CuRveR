@@ -1,0 +1,5 @@
+"row","condition","description","lysis_mid","lysis_rate","gfp_onset"
+"A","Sigmoid","Single sigmoid growth: Richard should be adequate",NA,NA,350
+"B","Diauxie","Diauxic growth (two phases): segments should win",NA,NA,600
+"C","Lysis","Prey growth then Bdellovibrio-like lysis at ~500 min",500,0.02,250
+"D","Lysis_delayed","Same as Lysis, lysis delayed to ~650 min and slower",650,0.012,250

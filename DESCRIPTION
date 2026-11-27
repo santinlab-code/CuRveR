@@ -38,6 +38,7 @@ Imports:
     forcats,
     shiny,
     sf,
+    segmented,
     tibble,
     gtools,
     shinyFiles,
@@ -59,6 +60,7 @@ Collate:
     'shiny_server.R'
     'utils.R'
     'web_analysis.R'
+    'web_advanced.R'
     'web_modules.R'
     'web_app.R'
 Suggests: 
